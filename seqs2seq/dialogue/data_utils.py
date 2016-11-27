@@ -106,28 +106,28 @@ def data_to_token_ids(data_path, target_path, vocabulary_path, tokenizer=None, n
 	if True:#gfile.Exists(target_path):
 		print("Tokenizing data in %s" % data_path)
 		vocab, _ = initialize_vocabulary(vocabulary_path)
-		#print(vocab)
-		#return
 		with gfile.GFile(data_path, mode="rb") as data_file:
 			with gfile.GFile(target_path, mode="w") as tokens_file:
 				counter = 0
 				for line in data_file:
 					line = line.strip()
-					#print(line)
 					sentence_array = line.split(SPLITER)
 					token_array= []
 					for sentence in sentence_array:
-						token_ids = sentence_to_token_ids(line, vocab, tokenizer,normalize_digits)
+						token_ids = sentence_to_token_ids(sentence, vocab, tokenizer,normalize_digits)
 						token_array.append(" ".join([str(tok) for tok in token_ids]))
-					#print(token_array)
 					counter += 1
 					if counter % 100000 == 0:
 						print("	tokenizing line %d" % counter)
 					tokens_file.write("\t".join(token_array) + "\n")
 
 def prepare_data(data_dir, src_vocabulary_size, tar_vocabulary_size, tokenizer=None):
-	create_vocabulary("./data/vocab.data","./data/skin.data",20000)
+	create_vocabulary("./data/vocab.data","./data/skin2.data",20000)
 	pass
 if __name__ =="__main__":
-	create_vocabulary("./data/vocab.data","./data/skin.data",20000)
-	data_to_token_ids("./data/skin.data","./data/ids.data","./data/vocab.data")
+	#vocab, rv = initialize_vocabulary("./data/vocab.data")
+	#print(len(vocab))
+#	create_vocabulary("./data/vocab.data","./data/skin2.data",20000)
+	data_to_token_ids("./data/skin-train.data","./data/train.data","./data/vocab.data")
+	data_to_token_ids("./data/skin-dev.data","./data/dev.data","./data/vocab.data")
+	data_to_token_ids("./data/skin-test.data","./data/test.data","./data/vocab.data")

@@ -20,10 +20,11 @@ model_dir ='./saved_model/'	#保存历史的模型运行结果
 train_path = './data/train.data'
 dev_path = './data/dev.data'
 test_path = './data/test.data'
-vocab_path
-max_size= 1000
-steps_per_checkpoint = 1000
-def read_data(source_path,max_size=10000):
+vocab_path = './data/vocab.data'
+max_size= 25000
+vocab,recab = data_utils.initialize_vocabulary(vocab_path)
+steps_per_checkpoint = 200
+def read_data(source_path,max_size=250000):
 	#读取数据，载入内存
 	data_set=[]
 	with tf.gfile.GFile(source_path, mode="r") as source_file:
@@ -34,12 +35,12 @@ def read_data(source_path,max_size=10000):
 			if counter % 100000 == 0:
 				print("  reading data line %d" % counter)
 				sys.stdout.flush()
-#print(source)
 			source = source.decode('utf-8')
 			source = source.strip()
 			sentence_array = source.split('\t')
 			cache =[]
 			for sentence in sentence_array:
+				print(sentence)
 				sentence = sentence.strip()
 				source_ids = [int(x) for x in sentence.split()]
 				cache.append(source_ids)
@@ -54,7 +55,6 @@ def create_model(session,train):
 	#传入session和是否为训练模型
 	model = hred.HRED()
 	model.build_model(train)
-	#ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
 	ckpt = tf.train.get_checkpoint_state(model_dir)
 	if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
 		print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -66,7 +66,6 @@ def create_model(session,train):
 def train():
 	with tf.Session() as sess:
 		model = create_model(sess, True)	#创建一个进行反向传递的模型
-		dev_set = read_data(dev_path)
 		train_set = read_data(train_path, max_size)
 
 		step_time, loss = 0.0, 0.0
@@ -98,20 +97,48 @@ def train():
 def decode():
 	with tf.Session() as sess:
 		model = create_model(sess, False)	#创建一个只进行正向传递的模型
-		test_set = read_data(dev_path)
+		test_set = read_data(test_path)
 		
 		encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
 		while encoder_inputs!=None:
 			_, step_loss, outputs= model.step(sess, encoder_inputs, decoder_inputs, target_weights)
 			print(outputs)
-			
+			print(encoder_inputs)
+			for batch_index in range(1):
+				for sentence_index in range(len(encoder_inputs)):
+					tokens = []
+					for token_index in range(len(encoder_inputs[sentence_index])):
+						id = encoder_inputs[sentence_index][token_index][batch_index]
+						print(batch_index,sentence_index,token_index,id)
+						if id >3:
+							tokens.append(recab[id])
+					tokens.reverse()
+					if (sentence_index%2==0):
+						print("用户:"," ".join(tokens))
+					else:
+						print("客服:"," ".join(tokens))
+					tokens =[]
+					if (sentence_index%2==1):	
+						for token_index in range(len(encoder_inputs[sentence_index])):
+							id = outputs[int(sentence_index/2)][token_index][batch_index]
+							print(batch_index,sentence_index,token_index,id)
+							if id >3:
+								tokens.append(recab[id])
+						print("预测:"," ".join(tokens))
+						tokens = []
+
+
+					
+
+					 
+
 			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
 			
 		
 		
 			
 if __name__ == '__main__':
-	decode()
-	#train()
+	#decode()
+	train()
 	
 	
