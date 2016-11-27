@@ -126,8 +126,8 @@ def data_to_token_ids(data_path, target_path, vocabulary_path, tokenizer=None, n
 					tokens_file.write("\t".join(token_array) + "\n")
 
 def prepare_data(data_dir, src_vocabulary_size, tar_vocabulary_size, tokenizer=None):
-	create_vocabulary("./data/vocab.txt","./data/skin.txt",20000)
+	create_vocabulary("./data/vocab.data","./data/skin.data",20000)
 	pass
 if __name__ =="__main__":
-	create_vocabulary("./data/vocab.txt","./data/skin.txt",20000)
-	data_to_token_ids("./data/skin.txt","./data/ids.txt","./data/vocab.txt")
+	create_vocabulary("./data/vocab.data","./data/skin.data",20000)
+	data_to_token_ids("./data/skin.data","./data/ids.data","./data/vocab.data")

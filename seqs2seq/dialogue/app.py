@@ -16,12 +16,13 @@ import tensorflow as tf
 import data_utils
 import hred
 
-model_dir ='./model_history/'	#保存历史的模型运行结果
-train_path = './data/train.txt'
-dev_path = './data/dev.txt'
-test_path = './data/test.txt'
+model_dir ='./saved_model/'	#保存历史的模型运行结果
+train_path = './data/train.data'
+dev_path = './data/dev.data'
+test_path = './data/test.data'
+vocab_path
 max_size= 1000
-steps_per_checkpoint = 50
+steps_per_checkpoint = 1000
 def read_data(source_path,max_size=10000):
 	#读取数据，载入内存
 	data_set=[]
@@ -45,14 +46,14 @@ def read_data(source_path,max_size=10000):
 			data_set.append(cache)
 			
 			source= source_file.readline()
+	print("dataset_size",len(data_set))
 	return data_set
 
 def create_model(session,train):
 	
 	#传入session和是否为训练模型
 	model = hred.HRED()
-	model.build_model()
-	model.train= train
+	model.build_model(train)
 	#ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
 	ckpt = tf.train.get_checkpoint_state(model_dir)
 	if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
@@ -64,8 +65,7 @@ def create_model(session,train):
 	return model
 def train():
 	with tf.Session() as sess:
-		model = create_model(sess, True)
-		# Read data into buckets and compute their sizes.
+		model = create_model(sess, True)	#创建一个进行反向传递的模型
 		dev_set = read_data(dev_path)
 		train_set = read_data(train_path, max_size)
 
@@ -78,32 +78,40 @@ def train():
 			start_time = time.time()
 			encoder_inputs, decoder_inputs, target_weights = model.get_batch(train_set,True)
 			#提取数据
-#_, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs, target_weights, True)
-			step_loss = model.step(sess, encoder_inputs, decoder_inputs, target_weights, True)
-			print("step_loss",step_loss)
-			#print ("step count",step_count)
+			_, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs, target_weights)
 			step_count+=1
-			
 			step_time += (time.time() - start_time) / steps_per_checkpoint
+			loss += step_loss / steps_per_checkpoint
+			print("step_count",step_count,"step_loss",step_loss)
 			
-			#step_loss_sum= tf.reduce_sum(step_loss)
-			#loss += step_loss_sum / steps_per_checkpoint
-			#print("step_loss_sum",sess.run(step_loss_sum))
-#			print("step_time",step_time)
-			current_step += 1
-		'''
-		if current_step % steps_per_checkpoint == 0:	#测试
-			perplexity = math.exp(loss) if loss < 300000 else float('inf')
-			print ("global step %d learning rate %.4f step-time %.2f perplexity "
+			if step_count % steps_per_checkpoint == 0:	#统计数据，保存模型
+				perplexity = math.exp(loss) if loss < 300000 else float('inf')
+				print ("global step %d learning rate %.4f step-time %.2f perplexity "
 						               "%.2f" % (model.global_step.eval(), model.learning_rate.eval(),
 										                            step_time, perplexity))
-			if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
-				sess.run(model.learning_rate_decay_op)
-			previous_losses.append(loss)
-			checkpoint_path = os.path.join(model_dir, "hred.ckpt")
-			model.saver.save(sess, checkpoint_path, global_step=model.global_step)
-			'''
+				if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
+					sess.run(model.learning_rate_decay_op)
+				previous_losses.append(loss)
+				checkpoint_path = os.path.join(model_dir, "hred.ckpt")
+				model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+				step_time, loss = 0.0, 0.0
+def decode():
+	with tf.Session() as sess:
+		model = create_model(sess, False)	#创建一个只进行正向传递的模型
+		test_set = read_data(dev_path)
+		
+		encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
+		while encoder_inputs!=None:
+			_, step_loss, outputs= model.step(sess, encoder_inputs, decoder_inputs, target_weights)
+			print(outputs)
+			
+			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
+			
+		
+		
+			
 if __name__ == '__main__':
-	train()
+	decode()
+	#train()
 	
 	
