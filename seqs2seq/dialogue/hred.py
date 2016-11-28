@@ -11,13 +11,13 @@ import data_utils
 class HRED:
 	def __init__(self):
 		self.train = True	#模型用来训练还是测试
-		self.batch_size = 20
+		self.batch_size = 50
 		self.memory_size =300	#RNN单元维度
 		self.vocab_size = 20001
 		self.embedding_size = 300
-		self.max_dialog_size = 25	#最长50次交互
-		self.max_sentence_size = 36	#每句话长度为100个单词
-		self.num_samples = 1000	#带采样的softmax
+		self.max_dialog_size = 25	#最长25次交互
+		self.max_sentence_size = 36	#每句话长度为36个单词
+		self.num_samples = 2000	#带采样的softmax
 		self.learning_rate = tf.Variable(float(1.0),trainable =False,dtype= tf.float32)
 		self.learning_rate_decay_factor = 0.1
 		self.learning_rate_decay_op = self.learning_rate.assign(self.learning_rate * self.learning_rate_decay_factor)
@@ -93,17 +93,25 @@ class HRED:
 							            prev, output_projection[0], output_projection[1])
 				prev_symbol = math_ops.argmax(prev, 1)
 				return prev_symbol
-
+			merge_weight = tf.get_variable('merge',[self.memory_size*2,self.memory_size],dtype=tf.float32)
 			for i in range(len(self.decoders)):
 				cell = tf.nn.rnn_cell.GRUCell(self.memory_size)
 				cell = tf.nn.rnn_cell.EmbeddingWrapper(cell,self.vocab_size,self.embedding_size)
 				decoder_output = None
+				concat_state = tf.concat(1,[self.context_outputs[i*2],self.encoder_outputs[i*2]])
+#			print("context_outputs[i*2]",self.context_outputs[i*2],tf.shape(self.context_outputs[i*2]))
+#			print("encoder_outputs[i*2]",self.encoder_outputs[i*2],tf.shape(self.encoder_outputs[i*2]))
+#			print('concat_state',concat_state,tf.shape(concat_state))
+#			print('merge_weight',merge_weight)
+#				concat_state = tf.reshape(concat_state,[self.memory_size*2,-1])
+				init_state = tf.matmul(concat_state,merge_weight)
+#				init_state = tf.mul(merge_weight,concat_state)
 				if self.train:	#在训练过程中的输入是预先定义好的，无需处理
-					(decoder_output,_) = tf.nn.seq2seq.rnn_decoder(self.decoders[i],self.context_outputs[i*2],cell,loop_function=None)
+					(decoder_output,_) = tf.nn.seq2seq.rnn_decoder(self.decoders[i],init_state,cell,loop_function=None)
 				else:	#在测试过程中的输入是动态确定的(第一步除外,所以需要输入)
-					(decoder_output,_) = tf.nn.seq2seq.rnn_decoder(self.decoders[i],self.context_outputs[i*2],cell,loop_function = argmax_loop_function)
+					(decoder_output,_) = tf.nn.seq2seq.rnn_decoder(self.decoders[i],init_state,cell,loop_function = argmax_loop_function)
 					if self.output_projection is not None:
-						print("in output projection")
+#					print("in output projection")
 						index_output = [ tf.matmul(output, self.output_projection[0]) + self.output_projection[1] for output in decoder_output]
 						index_output = [math_ops.argmax(logdist,1) for logdist in index_output]
 						self.index_outputs.append(index_output)

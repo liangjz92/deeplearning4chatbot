@@ -81,7 +81,7 @@ def train():
 			step_count+=1
 			step_time += (time.time() - start_time) / steps_per_checkpoint
 			loss += step_loss / steps_per_checkpoint
-			print("step_count",step_count,"step_loss",step_loss)
+			#print("step_count",step_count,"step_loss",step_loss)
 			
 			if step_count % steps_per_checkpoint == 0:	#统计数据，保存模型
 				perplexity = math.exp(loss) if loss < 300000 else float('inf')
@@ -97,7 +97,8 @@ def train():
 def decode():
 	with tf.Session() as sess:
 		model = create_model(sess, False)	#创建一个只进行正向传递的模型
-		test_set = read_data(train_path)
+		#test_set = read_data(train_path)
+		test_set = read_data(dev_path)
 		
 		encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
 		while encoder_inputs!=None:
@@ -116,10 +117,11 @@ def decode():
 						if (not end_mark) and( id >3):
 							tokens.append(recab[id])
 					tokens.reverse()
-					if (sentence_index%2==0 )and (len(tokens)==0):
-						print("用户:"," ".join(tokens))
-					else:
-						print("客服:"," ".join(tokens))
+					if len(tokens)!=0:
+						if (sentence_index%2==0 ):
+							print("用户:"," ".join(tokens))
+						else:
+							print("客服:"," ".join(tokens))
 					tokens =[]
 					if (sentence_index%2==1):	
 						end_mark =False
@@ -131,7 +133,7 @@ def decode():
 							if(not end_mark) and(id >3):
 								tokens.append(recab[id])
 						if len(tokens)>0:
-							print("预测:"," ".join(tokens))
+							print("*预测:"," ".join(tokens))
 						tokens = []
 			print("#################新对话######################")
 			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
@@ -140,7 +142,7 @@ def decode():
 		
 			
 if __name__ == '__main__':
-	decode()
-#train()
+	#decode()
+	train()
 	
 	
