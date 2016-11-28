@@ -97,7 +97,7 @@ def train():
 def decode():
 	with tf.Session() as sess:
 		model = create_model(sess, False)	#创建一个只进行正向传递的模型
-		test_set = read_data(test_path)
+		test_set = read_data(train_path)
 		
 		encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
 		while encoder_inputs!=None:
@@ -116,7 +116,7 @@ def decode():
 						if (not end_mark) and( id >3):
 							tokens.append(recab[id])
 					tokens.reverse()
-					if (sentence_index%2==0):
+					if (sentence_index%2==0 )and (len(tokens)==0):
 						print("用户:"," ".join(tokens))
 					else:
 						print("客服:"," ".join(tokens))
@@ -130,16 +130,17 @@ def decode():
 								end_mark = True
 							if(not end_mark) and(id >3):
 								tokens.append(recab[id])
-						print("预测:"," ".join(tokens))
+						if len(tokens)>0:
+							print("预测:"," ".join(tokens))
 						tokens = []
-
+			print("#################新对话######################")
 			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
 			
 		
 		
 			
 if __name__ == '__main__':
-#decode()
-	train()
+	decode()
+#train()
 	
 	

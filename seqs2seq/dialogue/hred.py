@@ -19,7 +19,7 @@ class HRED:
 		self.max_sentence_size = 36	#每句话长度为100个单词
 		self.num_samples = 500	#带采样的softmax
 		self.learning_rate = tf.Variable(float(0.5),trainable =False,dtype= tf.float32)
-		self.learning_rate_decay_factor = 0.99
+		self.learning_rate_decay_factor = 0.1
 		self.learning_rate_decay_op = self.learning_rate.assign(self.learning_rate * self.learning_rate_decay_factor)
 		self.global_step = tf.Variable(0, trainable=False)
 		self.max_gradient_norm =100.0
