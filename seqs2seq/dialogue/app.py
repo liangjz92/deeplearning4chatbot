@@ -40,7 +40,7 @@ def read_data(source_path,max_size=250000):
 			sentence_array = source.split('\t')
 			cache =[]
 			for sentence in sentence_array:
-				print(sentence)
+#print(sentence)
 				sentence = sentence.strip()
 				source_ids = [int(x) for x in sentence.split()]
 				cache.append(source_ids)
@@ -102,15 +102,18 @@ def decode():
 		encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
 		while encoder_inputs!=None:
 			_, step_loss, outputs= model.step(sess, encoder_inputs, decoder_inputs, target_weights)
-			print(outputs)
-			print(encoder_inputs)
+			#print(outputs)
+			#print(encoder_inputs)
 			for batch_index in range(1):
 				for sentence_index in range(len(encoder_inputs)):
 					tokens = []
+					end_mark = False
 					for token_index in range(len(encoder_inputs[sentence_index])):
 						id = encoder_inputs[sentence_index][token_index][batch_index]
-						print(batch_index,sentence_index,token_index,id)
-						if id >3:
+						#print(batch_index,sentence_index,token_index,id)
+						if id ==2:
+							end_mark=True
+						if (not end_mark) and( id >3):
 							tokens.append(recab[id])
 					tokens.reverse()
 					if (sentence_index%2==0):
@@ -119,18 +122,16 @@ def decode():
 						print("客服:"," ".join(tokens))
 					tokens =[]
 					if (sentence_index%2==1):	
+						end_mark =False
 						for token_index in range(len(encoder_inputs[sentence_index])):
 							id = outputs[int(sentence_index/2)][token_index][batch_index]
-							print(batch_index,sentence_index,token_index,id)
-							if id >3:
+							#print(batch_index,sentence_index,token_index,id)
+							if id ==2:
+								end_mark = True
+							if(not end_mark) and(id >3):
 								tokens.append(recab[id])
 						print("预测:"," ".join(tokens))
 						tokens = []
-
-
-					
-
-					 
 
 			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
 			
@@ -138,7 +139,7 @@ def decode():
 		
 			
 if __name__ == '__main__':
-	#decode()
+#decode()
 	train()
 	
 	

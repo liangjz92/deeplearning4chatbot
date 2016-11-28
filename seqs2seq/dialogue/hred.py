@@ -164,7 +164,7 @@ class HRED:
 		if self.train:
 			return outputs[1],outputs[2],None #gradient norm,loss,no outputs
 		else:
-			print(outputs)
+			#print(outputs)
 			return None,outputs[0],outputs[1]	#No gradient norm,loss, outputs
 
 	def get_batch(self,data,train=True,batch_size = -1):	# 一个数据集、是否是训练集，训练集随机取，测试集挨个遍历
@@ -214,7 +214,7 @@ class HRED:
 					decoder_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j])-2)
 					cache.append([data_utils.GO_ID]+one_session[j]+[data_utils.EOS_ID]+decoder_pad)
 				else:
-					cache.append([data_utils.GO_ID]+[data_utils.PAD_ID]*(self.max_sentence_size-1))
+					cache.append([data_utils.GO_ID]+[data_utils.EOS_ID]+[data_utils.PAD_ID]*(self.max_sentence_size-2))
 			#print("length_of_cache_decoder",len(cache))
 			decoder_inputs.append(cache)
 		
