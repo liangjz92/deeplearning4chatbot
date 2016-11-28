@@ -11,14 +11,14 @@ import data_utils
 class HRED:
 	def __init__(self):
 		self.train = True	#模型用来训练还是测试
-		self.batch_size = 50
+		self.batch_size = 20
 		self.memory_size =300	#RNN单元维度
 		self.vocab_size = 20001
 		self.embedding_size = 300
 		self.max_dialog_size = 25	#最长50次交互
 		self.max_sentence_size = 36	#每句话长度为100个单词
-		self.num_samples = 500	#带采样的softmax
-		self.learning_rate = tf.Variable(float(0.5),trainable =False,dtype= tf.float32)
+		self.num_samples = 1000	#带采样的softmax
+		self.learning_rate = tf.Variable(float(1.0),trainable =False,dtype= tf.float32)
 		self.learning_rate_decay_factor = 0.1
 		self.learning_rate_decay_op = self.learning_rate.assign(self.learning_rate * self.learning_rate_decay_factor)
 		self.global_step = tf.Variable(0, trainable=False)
