@@ -11,18 +11,18 @@ import data_utils
 class HRED:
 	def __init__(self):
 		self.train = True	#模型用来训练还是测试
-		self.batch_size = 25
+		self.batch_size = 50
 		self.memory_size =100	#RNN单元维度
 		self.vocab_size = 20001
 		self.embedding_size = 100
-		self.max_dialog_size = 10	#最长25次交互
+		self.max_dialog_size = 12	#最长25次交互
 		self.max_sentence_size = 20	#每句话长度为36个单词
-		self.num_samples = 50	#带采样的softmax
-		self.learning_rate = tf.Variable(float(1.0),trainable =False,dtype= tf.float32)
-		self.learning_rate_decay_factor = 0.9
+		self.num_samples = 500	#带采样的softmax
+		self.learning_rate = tf.Variable(float(0.5),trainable =False,dtype= tf.float32)
+		self.learning_rate_decay_factor = 0.95
 		self.learning_rate_decay_op = self.learning_rate.assign(self.learning_rate * self.learning_rate_decay_factor)
 		self.global_step = tf.Variable(0, trainable=False)
-		self.max_gradient_norm =100.0
+		self.max_gradient_norm =10.0
 		self.test_set_index = 0	#测试集数据当前读取的进度
 	def build_model(self,train):
 		self.train = (train==True)
@@ -72,10 +72,35 @@ class HRED:
 		self.context_outputs = None	#上下文编码器的数据结果
 		self.decoder_outputs = []	#各个解码器的解码结果，用以计算损失函数
 		self.index_outputs=[]
-		with tf.variable_scope("encoder") as scope:
+		self.encoder_cells = []
+		self.decoder_cells =[]
+		with tf.variable_scope("encoder_cells") as scope:
 			for i in range(self.max_dialog_size):
 				cell = tf.nn.rnn_cell.GRUCell(self.memory_size)
-				cell = tf.nn.rnn_cell.EmbeddingWrapper(cell,self.vocab_size,self.embedding_size)
+				self.encoder_cells.append(cell)
+				if i==0:	#第一次执行结束之后，开启重用变量的功能
+					tf.get_variable_scope().reuse_variables()
+
+		with tf.variable_scope("decoder_cells") as scope:
+			for i in range(len(self.decoders)):
+				cell = tf.nn.rnn_cell.GRUCell(self.memory_size*2)	#存在状态合并
+				self.decoder_cells.append(cell)
+				if i==0:	#第一次执行结束之后，开启重用变量的功能
+					tf.get_variable_scope().reuse_variables()
+		with tf.variable_scope("embedding_cells") as scope:
+			for i in range (len(self.encoder_cells)):
+				self.encoder_cells[i] = tf.nn.rnn_cell.EmbeddingWrapper(self.encoder_cells[i],self.vocab_size,self.embedding_size)
+				if i==0:	#第一次执行结束之后，开启重用变量的功能
+					tf.get_variable_scope().reuse_variables()
+			for i in range (len(self.decoder_cells)):
+				self.decoder_cells[i] = tf.nn.rnn_cell.EmbeddingWrapper(self.decoder_cells[i],self.vocab_size,self.embedding_size)
+
+		#############################################################################################################################
+		with tf.variable_scope("encoder") as scope:
+			for i in range(self.max_dialog_size):
+				#cell = tf.nn.rnn_cell.GRUCell(self.memory_size)
+				#cell = tf.nn.rnn_cell.EmbeddingWrapper(cell,self.vocab_size,self.embedding_size)
+				cell = self.encoder_cells[i]
 				(outputs,_) = tf.nn.rnn(cell,self.encoders[i],dtype=tf.float32)	#创建一个rnn来执行
 				self.encoder_outputs.append(outputs[-1])	#提取最后一时刻的输出进行保存
 
@@ -99,8 +124,9 @@ class HRED:
 
 
 			for i in range(len(self.decoders)):
-				cell = tf.nn.rnn_cell.GRUCell(self.memory_size*2)
-				cell = tf.nn.rnn_cell.EmbeddingWrapper(cell,self.vocab_size,self.embedding_size)
+				#cell = tf.nn.rnn_cell.GRUCell(self.memory_size*2)
+				#cell = tf.nn.rnn_cell.EmbeddingWrapper(cell,self.vocab_size,self.embedding_size)
+				cell = self.decoder_cells[i]
 				decoder_output = None
 				concat_state = tf.concat(1,[self.context_outputs[i*2],self.encoder_outputs[i*2]])
 				#init_state = tf.matmul(concat_state,merge_weight)
@@ -246,7 +272,7 @@ class HRED:
 					if length_index == self.max_sentence_size-1 or cache[-1][i]==data_utils.PAD_ID:
 						single_weight[i]= 0.0
 					else:
-						single_weight[i] = 1.0*i
+						single_weight[i] = 1.0
 				weight_cache.append(single_weight)
 						
 			batch_decoder.append(cache)
