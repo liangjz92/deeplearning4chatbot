@@ -13,6 +13,7 @@ if __name__ == '__main__':
 		index_inputs.append(index)
 		embedding = tf.nn.embedding_lookup(embedding_weight,index)
 		embedding_inputs.append(embedding)
+
 	norm_a = tf.sqrt(tf.reduce_sum(tf.mul(embedding_inputs[0],embedding_inputs[0]),1))
 	norm_b = tf.sqrt(tf.reduce_sum(tf.mul(embedding_inputs[1],embedding_inputs[1]),1))
 	norm_c = tf.sqrt(tf.reduce_sum(tf.mul(embedding_inputs[2],embedding_inputs[2]),1))
@@ -28,9 +29,13 @@ if __name__ == '__main__':
 		
 	init = tf.initialize_all_variables()
 	with tf.Session() as sess:
+		output_feed =[
+			embedding_inputs[0],
+			diff
+			]
 		input_feed = {}
 		for i in range(3):
-			input_feed[index_inputs[i].name] = np.array([1,2])
+			input_feed[index_inputs[i].name] = np.array([1,2,3])
 		
 		sess.run(init)
-		print(sess.run([diff,loss],feed_dict=input_feed))
+		print(sess.run(output_feed,feed_dict=input_feed))
