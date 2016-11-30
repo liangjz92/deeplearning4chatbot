@@ -11,15 +11,15 @@ import data_utils
 class HRED:
 	def __init__(self):
 		self.train = True	#模型用来训练还是测试
-		self.batch_size = 50
-		self.memory_size =300	#RNN单元维度
+		self.batch_size = 25
+		self.memory_size =100	#RNN单元维度
 		self.vocab_size = 20001
-		self.embedding_size = 300
-		self.max_dialog_size = 25	#最长25次交互
-		self.max_sentence_size = 36	#每句话长度为36个单词
-		self.num_samples = 2000	#带采样的softmax
+		self.embedding_size = 100
+		self.max_dialog_size = 10	#最长25次交互
+		self.max_sentence_size = 20	#每句话长度为36个单词
+		self.num_samples = 50	#带采样的softmax
 		self.learning_rate = tf.Variable(float(1.0),trainable =False,dtype= tf.float32)
-		self.learning_rate_decay_factor = 0.1
+		self.learning_rate_decay_factor = 0.9
 		self.learning_rate_decay_op = self.learning_rate.assign(self.learning_rate * self.learning_rate_decay_factor)
 		self.global_step = tf.Variable(0, trainable=False)
 		self.max_gradient_norm =100.0
@@ -56,7 +56,7 @@ class HRED:
 		output_projection = None
 		softmax_loss_function = None
 		if self.num_samples >0 and self.num_samples <self.vocab_size:
-			w_t =tf.get_variable('proj_w',[self.vocab_size,self.memory_size],dtype=tf.float32)
+			w_t =tf.get_variable('proj_w',[self.vocab_size,self.memory_size*2],dtype=tf.float32)
 			w =tf.transpose(w_t)
 			b =tf.get_variable('proj_b',[self.vocab_size],dtype=tf.float32)
 			output_projection = (w,b)
@@ -85,33 +85,31 @@ class HRED:
 		with tf.variable_scope("context") as scope:
 			cell = tf.nn.rnn_cell.GRUCell(self.memory_size)	#用来编码上下文的rnn cell,没有任何特别之处
 			(self.context_outputs,_) = tf.nn.rnn(cell,self.encoder_outputs,dtype=tf.float32)	#直接在encoder的结果上进行编码
-
-		with tf.variable_scope("decoder") as scope:
+		############################################################################################################################
+		
+		with tf.variable_scope("decoder",reuse=None) as scope:
 			def argmax_loop_function(prev,_):
 				if output_projection is not None:
-				      prev = nn_ops.xw_plus_b(
-							            prev, output_projection[0], output_projection[1])
+			    	  prev = nn_ops.xw_plus_b(
+				            prev, output_projection[0], output_projection[1])
 				prev_symbol = math_ops.argmax(prev, 1)
 				return prev_symbol
-			merge_weight = tf.get_variable('merge',[self.memory_size*2,self.memory_size],dtype=tf.float32)
+#			merge_weight = tf.get_variable('merge',[self.memory_size*2,self.memory_size],dtype=tf.float32)
+#			merge_weight = tf.Variable(tf.random_uniform([self.memory_size*2,self.memory_size],-1.0,1.0),name = 'merge')
+
+
 			for i in range(len(self.decoders)):
-				cell = tf.nn.rnn_cell.GRUCell(self.memory_size)
+				cell = tf.nn.rnn_cell.GRUCell(self.memory_size*2)
 				cell = tf.nn.rnn_cell.EmbeddingWrapper(cell,self.vocab_size,self.embedding_size)
 				decoder_output = None
 				concat_state = tf.concat(1,[self.context_outputs[i*2],self.encoder_outputs[i*2]])
-#			print("context_outputs[i*2]",self.context_outputs[i*2],tf.shape(self.context_outputs[i*2]))
-#			print("encoder_outputs[i*2]",self.encoder_outputs[i*2],tf.shape(self.encoder_outputs[i*2]))
-#			print('concat_state',concat_state,tf.shape(concat_state))
-#			print('merge_weight',merge_weight)
-#				concat_state = tf.reshape(concat_state,[self.memory_size*2,-1])
-				init_state = tf.matmul(concat_state,merge_weight)
-#				init_state = tf.mul(merge_weight,concat_state)
+				#init_state = tf.matmul(concat_state,merge_weight)
+				init_state = concat_state
 				if self.train:	#在训练过程中的输入是预先定义好的，无需处理
 					(decoder_output,_) = tf.nn.seq2seq.rnn_decoder(self.decoders[i],init_state,cell,loop_function=None)
 				else:	#在测试过程中的输入是动态确定的(第一步除外,所以需要输入)
 					(decoder_output,_) = tf.nn.seq2seq.rnn_decoder(self.decoders[i],init_state,cell,loop_function = argmax_loop_function)
 					if self.output_projection is not None:
-#					print("in output projection")
 						index_output = [ tf.matmul(output, self.output_projection[0]) + self.output_projection[1] for output in decoder_output]
 						index_output = [math_ops.argmax(logdist,1) for logdist in index_output]
 						self.index_outputs.append(index_output)
@@ -129,12 +127,18 @@ class HRED:
 					self.weights[i][:-1],	#计算loss时的权重 [batch, ...]
 					softmax_loss_function = softmax_loss_function)
 			self.losses.append(self.loss)
-		self.loss_sum = tf.reduce_sum(tf.pack(self.losses))	#final loss
-		
+		self.loss_sum = tf.reduce_sum(tf.pack(self.losses))	#final loss	
+
+		params = tf.trainable_variables()
+		'''
+		for param in params:
+			if 'embedding' not in param.name:
+				print(param.name,param)
+				self.loss_sum = self.loss_sum + 1e-4*tf.nn.l2_loss(param)
+		'''
 		self.gradient_norms = []
 		self.updates=[]
 		opt = tf.train.GradientDescentOptimizer(self.learning_rate)
-		params = tf.trainable_variables()
 		gradients = tf.gradients(self.loss_sum,params)
 		clipped_gradients, norm = tf.clip_by_global_norm(gradients,self.max_gradient_norm)
 		self.gradient_norms.append(norm)
@@ -162,11 +166,7 @@ class HRED:
 		else:
 			output_feed =[self.loss_sum]
 			output_feed.append(self.index_outputs)
-			'''
-			for i in range(len(self.decoder_outputs)):
-				for j in range(self.max_sentence_size):
-					output_feed.append(self.decoder_outputs[i][j])
-			'''
+
 		outputs = session.run(output_feed, input_feed)
 
 		if self.train:
@@ -242,9 +242,11 @@ class HRED:
 			for length_index in range(self.max_sentence_size):	#token size	，每句话里有20个单词
 				cache.append(np.array([decoder_inputs[batch_index][sent_index][length_index]for batch_index in range(len(decoder_inputs))]))
 				single_weight=np.ones(len(decoder_inputs),dtype=np.float32)	#同一个位置一个batch单词的weight
-				for i in range(len(decoder_inputs)):	#batch size，一个batch有5个sample
+				for i in range(1,len(decoder_inputs)):	#batch size，一个batch有5个sample
 					if length_index == self.max_sentence_size-1 or cache[-1][i]==data_utils.PAD_ID:
 						single_weight[i]= 0.0
+					else:
+						single_weight[i] = 1.0*i
 				weight_cache.append(single_weight)
 						
 			batch_decoder.append(cache)

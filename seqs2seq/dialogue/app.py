@@ -16,7 +16,7 @@ import tensorflow as tf
 import data_utils
 import hred
 
-model_dir ='./saved_model/'	#保存历史的模型运行结果
+model_dir ='./ckpt/'	#保存历史的模型运行结果
 train_path = './data/train.data'
 dev_path = './data/dev.data'
 test_path = './data/test.data'
@@ -84,7 +84,8 @@ def train():
 			#print("step_count",step_count,"step_loss",step_loss)
 			
 			if step_count % steps_per_checkpoint == 0:	#统计数据，保存模型
-				perplexity = math.exp(loss) if loss < 300000 else float('inf')
+				print("global step loss:",loss)
+				perplexity = math.exp(loss) if loss < 300 else float('inf')
 				print ("global step %d learning rate %.4f step-time %.2f perplexity "
 						               "%.2f" % (model.global_step.eval(), model.learning_rate.eval(),
 										                            step_time, perplexity))
@@ -95,54 +96,55 @@ def train():
 				model.saver.save(sess, checkpoint_path, global_step=model.global_step)
 				step_time, loss = 0.0, 0.0
 def decode():
-	with tf.Session() as sess:
-		model = create_model(sess, False)	#创建一个只进行正向传递的模型
-		#test_set = read_data(train_path)
-		test_set = read_data(dev_path)
+	with tf.device('/cpu:0'):
+		with tf.Session() as sess:
+			model = create_model(sess, False)	#创建一个只进行正向传递的模型
+			test_set = read_data(train_path)
+			#test_set = read_data(dev_path)
 		
-		encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
-		while encoder_inputs!=None:
-			_, step_loss, outputs= model.step(sess, encoder_inputs, decoder_inputs, target_weights)
-			#print(outputs)
-			#print(encoder_inputs)
-			for batch_index in range(1):
-				for sentence_index in range(len(encoder_inputs)):
-					tokens = []
-					end_mark = False
-					for token_index in range(len(encoder_inputs[sentence_index])):
-						id = encoder_inputs[sentence_index][token_index][batch_index]
-						#print(batch_index,sentence_index,token_index,id)
-						if id ==2:
-							end_mark=True
-						if (not end_mark) and( id >3):
-							tokens.append(recab[id])
-					tokens.reverse()
-					if len(tokens)!=0:
-						if (sentence_index%2==0 ):
-							print("用户:"," ".join(tokens))
-						else:
-							print("客服:"," ".join(tokens))
-					tokens =[]
-					if (sentence_index%2==1):	
-						end_mark =False
+			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
+			while encoder_inputs!=None:
+				_, step_loss, outputs= model.step(sess, encoder_inputs, decoder_inputs, target_weights)
+				#print(outputs)
+				#print(encoder_inputs)
+				for batch_index in range(1):
+					for sentence_index in range(len(encoder_inputs)):
+						tokens = []
+						end_mark = False
 						for token_index in range(len(encoder_inputs[sentence_index])):
-							id = outputs[int(sentence_index/2)][token_index][batch_index]
+							id = encoder_inputs[sentence_index][token_index][batch_index]
 							#print(batch_index,sentence_index,token_index,id)
 							if id ==2:
-								end_mark = True
-							if(not end_mark) and(id >3):
+								end_mark=True
+							if (not end_mark) and( id >3):
 								tokens.append(recab[id])
-						if len(tokens)>0:
-							print("*预测:"," ".join(tokens))
-						tokens = []
-			print("#################新对话######################")
-			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
+						tokens.reverse()
+						if len(tokens)!=0:
+							if (sentence_index%2==0 ):
+								print("用户:"," ".join(tokens))
+							else:
+								print("客服:"," ".join(tokens))
+							tokens =[]
+						if (sentence_index%2==1):	
+							end_mark =False
+							for token_index in range(len(encoder_inputs[sentence_index])):
+								id = outputs[int(sentence_index/2)][token_index][batch_index]
+								#print(batch_index,sentence_index,token_index,id)
+								if id ==2:
+									end_mark = True
+								if(not end_mark) and(id >3):
+									tokens.append(recab[id])
+							if len(tokens)>0:
+								print("*预测:"," ".join(tokens))
+							tokens = []
+				print("#################新对话######################")
+				encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
 			
 		
 		
 			
 if __name__ == '__main__':
-	#decode()
-	train()
+	decode()
+	#train()
 	
 	
