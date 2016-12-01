@@ -15,7 +15,7 @@ class HRED:
 		self.memory_size =100	#RNN单元维度
 		self.vocab_size = 20001
 		self.embedding_size = 100
-		self.max_dialog_size = 12	#最长25次交互
+		self.max_dialog_size = 4	#最长25次交互
 		self.max_sentence_size = 20	#每句话长度为36个单词
 		self.num_samples = 500	#带采样的softmax
 		self.learning_rate = tf.Variable(float(0.5),trainable =False,dtype= tf.float32)
@@ -164,7 +164,8 @@ class HRED:
 		'''
 		self.gradient_norms = []
 		self.updates=[]
-		opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+		#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+		opt = tf.train.AdagradOptimizer(self.learning_rate)
 		gradients = tf.gradients(self.loss_sum,params)
 		clipped_gradients, norm = tf.clip_by_global_norm(gradients,self.max_gradient_norm)
 		self.gradient_norms.append(norm)
@@ -268,7 +269,7 @@ class HRED:
 			for length_index in range(self.max_sentence_size):	#token size	，每句话里有20个单词
 				cache.append(np.array([decoder_inputs[batch_index][sent_index][length_index]for batch_index in range(len(decoder_inputs))]))
 				single_weight=np.ones(len(decoder_inputs),dtype=np.float32)	#同一个位置一个batch单词的weight
-				for i in range(1,len(decoder_inputs)):	#batch size，一个batch有5个sample
+				for i in range(len(decoder_inputs)):	#batch size，一个batch有5个sample
 					if length_index == self.max_sentence_size-1 or cache[-1][i]==data_utils.PAD_ID:
 						single_weight[i]= 0.0
 					else:

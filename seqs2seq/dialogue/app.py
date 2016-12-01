@@ -99,8 +99,8 @@ def decode():
 	with tf.device('/cpu:0'):
 		with tf.Session() as sess:
 			model = create_model(sess, False)	#创建一个只进行正向传递的模型
-			test_set = read_data(train_path)
-			#test_set = read_data(dev_path)
+			#test_set = read_data(train_path)
+			test_set = read_data(dev_path)
 		
 			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
 			while encoder_inputs!=None:
@@ -144,7 +144,7 @@ def decode():
 		
 			
 if __name__ == '__main__':
-	#decode()
-	train()
+	decode()
+	#train()
 	
 	
