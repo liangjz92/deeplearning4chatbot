@@ -152,7 +152,8 @@ class Ranker:
 					#print(param.name,param)
 					self.loss_sum = self.loss_sum + 1e-4 * tf.nn.l2_loss(param)
 			
-			opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+			#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+			opt = tf.train.AdamOptimizer(self.learning_rate)
 			gradients = tf.gradients(self.loss_sum,params)
 			clipped_gradients, norm = tf.clip_by_global_norm(gradients,self.max_gradient_norm)
 			self.gradient_norms.append(norm)
