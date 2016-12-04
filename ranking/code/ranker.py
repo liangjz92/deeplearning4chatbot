@@ -223,7 +223,126 @@ class Ranker:
 			print("cosine outputs",output)
 		return results
 
-			
+############################################################################
+	def get_max(iters):
+		#获取当前迭代次数下，有效的对话长度限制
+		#课程学习
+		border = 1
+		for i in range(1,100):
+			if i*1000+i*i*200 < iters:
+				border = i
+			else:
+				break
+		return break
+
+#################################
+
+	def train2vec(self, dialogs, iters):
+		batch_size = len(dialogs)	#获取当前batch_size
+		current_border = 1	#当前最多可以预测几句话
+		max_border = self.get_max(iters)
+		history_inputs =[]
+		true_inputs =[]
+		false_inputs = []
+		for i in range( batch_size ):
+			border = min(len(dialogs[i]),current_border*2)
+			dialogs[i] = dialogs[i][:border]
+		if (dialogs ==None) or len(dialogs)==0 : #没传进来参数
+			return None,None,None
+		for i in range(batch_size): #batch
+			one_session = dialogs[i]	#对话真实存在
+			cache = []
+			for j in range(self.max_dialogue_size):	#句子可能因为对话长度不够而不存在
+				if j< len(one_session):
+					encoder_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][0]))	#0是真实的对话
+					cache.append(list(reversed(one_session[j][0]+encoder_pad)))	#反转输入
+				else:
+					cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
+			history_inputs.append(cache)
+			true_cache =[]
+			false_cache = []
+			for j in range(self.max_dialog_size):   #candidate part
+				if j %2==0: #第0,2,4,..句话由用户说
+					continue
+				if j<len(one_session):
+					true_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][0]))
+					true_cache.append(list(reversed(one_session[j] + true_pad)))# true candiate
+					false_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][1]))
+					false_cache.append(list(reversed(one_session[j] + false_pad)))#false candidate
+				else:
+					true_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
+					false_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
+			true_inputs.append(true_cache)
+			false_inputs.append(false_cache)
+		######################################################
+		batch_history,batch_true,batch_false = [], [], []
+		for sent_index in range(self.max_dialogue_size):
+			history_cache = []
+			for length_index in range(self.max_sentence_size):
+				history_cache.append(np.array([history_inputs[batch_index][sent_index][length_index] for batch_index in range(len(history_inputs))]))
+			batch_history.append(history_cache)
+			if sent_index % 2==0:
+				true_cache, false_cache = [], []
+				for length_index in range(self.max_sentence_size):
+					true_cache.append(np.array([true_inputs[batch_index][sent_index/2][length_index] for batch_index in range(len(hitory_inputs))]))
+					false_cache.append(np.array([false_inputs[batch_index][sent_index/2][length_index] for batch_index in range(len(hitory_inputs))]))
+				batch_true.append(true_cache)
+				batch_false.append(false_cache)
+
+		return batch_history, batch_true, batch_false			
+		
+	def test2vec(self,history):
+		#将测试数据转换成合适的格式
+		#测试数据每次只使用一条
+		batch_size = 1	#每次只能使用一条测试数据
+		history_inputs =[]
+		candidate_inputs =[]
+		if (history ==None) or len(history)==0 : #没传进来参数
+			return None,None
+		for i in range(batch_size): #batch
+			one_session = dialogs[i]	#对话真实存在
+			cache = []
+			for j in range(self.max_dialogue_size):	#句子可能因为对话长度不够而不存在
+				if j< len(one_session):
+					encoder_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][0]))	#0是真实的对话
+					cache.append(list(reversed(one_session[j][0]+encoder_pad)))	#反转输入
+				else:
+					cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
+			history_inputs.append(cache)
+			true_cache =[]
+			false_cache = []
+			for j in range(self.max_dialog_size):   #candidate part
+				if j %2==0: #第0,2,4,..句话由用户说
+					continue
+				if j<len(one_session):
+					true_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][0]))
+					true_cache.append(list(reversed(one_session[j] + true_pad)))# true candiate
+					false_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][1]))
+					false_cache.append(list(reversed(one_session[j] + false_pad)))#false candidate
+				else:
+					true_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
+					false_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
+			true_inputs.append(true_cache)
+			false_inputs.append(false_cache)
+		######################################################
+		batch_history,batch_true,batch_false = [], [], []
+		for sent_index in range(self.max_dialogue_size):
+			history_cache = []
+			for length_index in range(self.max_sentence_size):
+				history_cache.append(np.array([history_inputs[batch_index][sent_index][length_index] for batch_index in range(len(history_inputs))]))
+			batch_history.append(history_cache)
+			if sent_index % 2==0:
+				true_cache, false_cache = [], []
+				for length_index in range(self.max_sentence_size):
+					true_cache.append(np.array([true_inputs[batch_index][sent_index/2][length_index] for batch_index in range(len(hitory_inputs))]))
+					false_cache.append(np.array([false_inputs[batch_index][sent_index/2][length_index] for batch_index in range(len(hitory_inputs))]))
+				batch_true.append(true_cache)
+				batch_false.append(false_cache)
+
+		return batch_history, batch_true, batch_false			
+
+					
+
 
 ############################################################################
 					
