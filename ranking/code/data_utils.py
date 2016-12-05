@@ -32,6 +32,7 @@ _DIGIT_RE = re.compile(br"\d")
 class DU:
 	def __init__(self):
 		self.ut_path = '../data/uterance.data'
+		self.mark_path = '../data/mark.data'
 		self.vocab_path = '../data/vocab.data'
 		self.ids_path = '../data/ids.data'
 		self.train_path = '../data/train.data'

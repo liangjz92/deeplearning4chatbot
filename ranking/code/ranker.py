@@ -1,7 +1,7 @@
 #coding=utf-8
 import tensorflow as tf
 import numpy as np
-
+import data_utils
 class Ranker:
 	def __init__(self,
 			vocab_size = 20001,
@@ -10,7 +10,7 @@ class Ranker:
 			batch_size =20,
 			max_dialogue_size = 5,
 			max_sentence_size = 6,
-			l2_weight = 1e-4,
+			l2_weight = 1e-7,
 			margin = 0.05,
 			max_gradient_norm = 5.0,
 			learning_rate =1.0,
@@ -31,6 +31,7 @@ class Ranker:
 		self.use_lstm = use_lstm 
 		self.train_mode =train_mode
 		self.global_step = tf.Variable(0, trainable=False)
+		self.margin_val = margin
 
 	def build_model(self):
 		self.history_index = []
@@ -140,25 +141,24 @@ class Ranker:
 
 		with tf.variable_scope("loss_compute") as scope:
 			#在训练过程中计算损失函数
-			self.loss_sum = tf.reduce_sum(self.loss)
+			self.loss_mean = tf.reduce_mean(self.loss)
 			self.gradient_norms = []
 			self.updates = []
 			opt = tf.train.AdadeltaOptimizer(self.learning_rate)
 			#优化器
 			params = tf.trainable_variables()
-
+			'''
 			for param in params:
 				if 'embedding' not in param.name:
 					#print(param.name,param)
-					self.loss_sum = self.loss_sum + 1e-4 * tf.nn.l2_loss(param)
-			
+					self.loss_sum = self.loss_sum + self.l2_weight * tf.nn.l2_loss(param)
+			'''
 			#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
 			opt = tf.train.AdamOptimizer(self.learning_rate)
-			gradients = tf.gradients(self.loss_sum,params)
+			gradients = tf.gradients(self.loss_mean,params)
 			clipped_gradients, norm = tf.clip_by_global_norm(gradients,self.max_gradient_norm)
 			self.gradient_norms.append(norm)
 			self.updates.append(opt.apply_gradients(zip(clipped_gradients, params), global_step=self.global_step))
-			self.saver = tf.train.Saver(tf.all_variables())
 		
 		with tf.variable_scope('cosine_test'):
 			#在测试过程中批量计算cosine的值
@@ -169,6 +169,9 @@ class Ranker:
 			self.mul_cc = tf.reduce_sum( tf.mul(self.test_context,self.test_candidate ),1)	#cc mul
 			self.cos_cc = tf.div( self.mul_cc, tf.mul(self.context_norm, self.candidate_norm))	#cc cosine
 			
+		self.saver = tf.train.Saver(tf.all_variables())
+		#保存所有模型参数信息
+
 	def step_train(self,session,history,true_index,false_index):
 		#进行一次训练迭代
 		input_feed={}	
@@ -180,10 +183,13 @@ class Ranker:
 			for j in range(self.max_sentence_size):
 				input_feed[self.true_index[i][j].name] = true_index[i][j]
 				input_feed[self.false_index[i][j].name] = false_index[i][j]
+
+		input_feed[self.zero.name] = np.array([0.0 for i in xrange(history[0][0].shape[0])])
+		input_feed[self.margin.name] = np.array([self.margin_val for i in xrange(history[0][0].shape[0])])
 		output_feed = [
 			self.updates,
 		    self.gradient_norms,
-		    self.loss_sum
+		    self.loss_mean
 		]
 		outputs = session.run(output_feed,input_feed)
 		return outputs[2]
@@ -208,8 +214,8 @@ class Ranker:
 		###########
 		response_size = len(outputs[1])	#一次对话中，需要进行多少次预测
 		candidate_size = len(outputs[1][0])	#每次预测，需要候选多少个样本
-		print("reponse_size",response_size)
-		print("candiate_size",candidate_size)
+		#print("reponse_size",response_size)
+		#print("candiate_size",candidate_size)
 		results = []
 		for i in range(response_size):
 			context = outputs[0][i]
@@ -220,11 +226,11 @@ class Ranker:
 			output_feed = [self.cos_cc]
 			output= session.run(output_feed,input_feed)
 			results.append(output[0])
-			print("cosine outputs",output)
+			#print("cosine outputs",output)
 		return results
 
 ############################################################################
-	def get_max(iters):
+	def get_max(self, iters):
 		#获取当前迭代次数下，有效的对话长度限制
 		#课程学习
 		border = 1
@@ -233,47 +239,52 @@ class Ranker:
 				border = i
 			else:
 				break
-		return break
+		return border
 
 #################################
 
 	def train2vec(self, dialogs, iters):
 		batch_size = len(dialogs)	#获取当前batch_size
-		current_border = 1	#当前最多可以预测几句话
-		max_border = self.get_max(iters)
+		max_border = self.get_max(iters)	#当前最多可以说几句话
 		history_inputs =[]
 		true_inputs =[]
 		false_inputs = []
 		for i in range( batch_size ):
-			border = min(len(dialogs[i]),current_border*2)
+			border = min(len(dialogs[i]),max_border*2)
 			dialogs[i] = dialogs[i][:border]
+			#for j in len(dialogs[i]):
 		if (dialogs ==None) or len(dialogs)==0 : #没传进来参数
 			return None,None,None
 		for i in range(batch_size): #batch
 			one_session = dialogs[i]	#对话真实存在
 			cache = []
 			for j in range(self.max_dialogue_size):	#句子可能因为对话长度不够而不存在
-				if j< len(one_session):
+				if j < len(one_session):
 					encoder_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][0]))	#0是真实的对话
+					#print('encoder_pad',encoder_pad)
 					cache.append(list(reversed(one_session[j][0]+encoder_pad)))	#反转输入
 				else:
 					cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
 			history_inputs.append(cache)
 			true_cache =[]
 			false_cache = []
-			for j in range(self.max_dialog_size):   #candidate part
+			for j in range(self.max_dialogue_size):   #candidate part
 				if j %2==0: #第0,2,4,..句话由用户说
 					continue
 				if j<len(one_session):
 					true_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][0]))
-					true_cache.append(list(reversed(one_session[j] + true_pad)))# true candiate
+					true_cache.append(list(reversed(one_session[j][0] + true_pad)))# true candiate
 					false_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][1]))
-					false_cache.append(list(reversed(one_session[j] + false_pad)))#false candidate
+					false_cache.append(list(reversed(one_session[j][1] + false_pad)))#false candidate
 				else:
 					true_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
 					false_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
+#			print('true_cache',true_cache)
+#			print('false_cache',false_cache)
 			true_inputs.append(true_cache)
 			false_inputs.append(false_cache)
+		#print('true_inputs',true_inputs)
+		#print('false_inputs',false_inputs)
 		######################################################
 		batch_history,batch_true,batch_false = [], [], []
 		for sent_index in range(self.max_dialogue_size):
@@ -281,11 +292,11 @@ class Ranker:
 			for length_index in range(self.max_sentence_size):
 				history_cache.append(np.array([history_inputs[batch_index][sent_index][length_index] for batch_index in range(len(history_inputs))]))
 			batch_history.append(history_cache)
-			if sent_index % 2==0:
+			if sent_index % 2!=0:
 				true_cache, false_cache = [], []
 				for length_index in range(self.max_sentence_size):
-					true_cache.append(np.array([true_inputs[batch_index][sent_index/2][length_index] for batch_index in range(len(hitory_inputs))]))
-					false_cache.append(np.array([false_inputs[batch_index][sent_index/2][length_index] for batch_index in range(len(hitory_inputs))]))
+					true_cache.append(np.array([true_inputs[batch_index][int(sent_index/2)][length_index] for batch_index in range(len(history_inputs))]))
+					false_cache.append(np.array([false_inputs[batch_index][int(sent_index/2)][length_index] for batch_index in range(len(history_inputs))]))
 				batch_true.append(true_cache)
 				batch_false.append(false_cache)
 
@@ -294,55 +305,51 @@ class Ranker:
 	def test2vec(self,history):
 		#将测试数据转换成合适的格式
 		#测试数据每次只使用一条
-		batch_size = 1	#每次只能使用一条测试数据
 		history_inputs =[]
 		candidate_inputs =[]
 		if (history ==None) or len(history)==0 : #没传进来参数
 			return None,None
-		for i in range(batch_size): #batch
-			one_session = dialogs[i]	#对话真实存在
-			cache = []
-			for j in range(self.max_dialogue_size):	#句子可能因为对话长度不够而不存在
-				if j< len(one_session):
-					encoder_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][0]))	#0是真实的对话
-					cache.append(list(reversed(one_session[j][0]+encoder_pad)))	#反转输入
-				else:
-					cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
-			history_inputs.append(cache)
-			true_cache =[]
-			false_cache = []
-			for j in range(self.max_dialog_size):   #candidate part
-				if j %2==0: #第0,2,4,..句话由用户说
-					continue
-				if j<len(one_session):
-					true_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][0]))
-					true_cache.append(list(reversed(one_session[j] + true_pad)))# true candiate
-					false_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][1]))
-					false_cache.append(list(reversed(one_session[j] + false_pad)))#false candidate
-				else:
+		candidate_size = len(history[1])
+		#print('candidate_size',candidate_size)
+		cache = []
+		for j in range(self.max_dialogue_size):	#句子可能因为对话长度不够而不存在
+			if j< len(history):
+				encoder_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(history[j][0]))	#0是真实的对话
+				cache.append(list(reversed(history[j][0]+encoder_pad)))	#反转输入
+			else:
+				cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
+		history_inputs = cache
+		#print(history_inputs)
+		true_cache =[]
+		for i in range(self.max_dialogue_size):   #candidate part
+			if i %2==0: #第0,2,4,..句话由用户说
+				continue
+			if i<len(history):	#这个对话是存在的
+				for j in range(candidate_size):
+					true_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(history[i][j]))
+					true_cache.append(list(reversed(history[i][j] + true_pad)))# true candidate
+			else:
+				for j in range(candidate_size):
 					true_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
-					false_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
-			true_inputs.append(true_cache)
-			false_inputs.append(false_cache)
+			candidate_inputs.append(true_cache)
+			true_cache =[]
+		
+		
 		######################################################
-		batch_history,batch_true,batch_false = [], [], []
+		batch_history, batch_candidate = [], []
+
 		for sent_index in range(self.max_dialogue_size):
 			history_cache = []
 			for length_index in range(self.max_sentence_size):
-				history_cache.append(np.array([history_inputs[batch_index][sent_index][length_index] for batch_index in range(len(history_inputs))]))
+				history_cache.append(np.array( [history_inputs[sent_index][length_index]]))
 			batch_history.append(history_cache)
-			if sent_index % 2==0:
-				true_cache, false_cache = [], []
+
+			if sent_index % 2 != 0:
+				candidate_cache = []
 				for length_index in range(self.max_sentence_size):
-					true_cache.append(np.array([true_inputs[batch_index][sent_index/2][length_index] for batch_index in range(len(hitory_inputs))]))
-					false_cache.append(np.array([false_inputs[batch_index][sent_index/2][length_index] for batch_index in range(len(hitory_inputs))]))
-				batch_true.append(true_cache)
-				batch_false.append(false_cache)
-
-		return batch_history, batch_true, batch_false			
-
-					
-
+					candidate_cache.append(np.array([candidate_inputs[int(sent_index/2)][batch_index][length_index] for batch_index in range(candidate_size)]))
+				batch_candidate.append(candidate_cache)
+		return batch_history, batch_candidate
 
 ############################################################################
 					
