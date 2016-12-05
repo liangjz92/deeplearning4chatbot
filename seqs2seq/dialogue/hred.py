@@ -12,17 +12,18 @@ class HRED:
 	def __init__(self):
 		self.train = True	#模型用来训练还是测试
 		self.batch_size = 50
-		self.memory_size =100	#RNN单元维度
+		self.memory_size =300	#RNN单元维度
 		self.vocab_size = 20001
-		self.embedding_size = 100
-		self.max_dialog_size = 4	#最长25次交互
-		self.max_sentence_size = 20	#每句话长度为36个单词
+		self.embedding_size = 300
+		self.max_dialog_size = 25	#最长25次交互
+		self.l2 = 1e-7
+		self.max_sentence_size = 36	#每句话长度为36个单词
 		self.num_samples = 500	#带采样的softmax
 		self.learning_rate = tf.Variable(float(0.5),trainable =False,dtype= tf.float32)
 		self.learning_rate_decay_factor = 0.95
 		self.learning_rate_decay_op = self.learning_rate.assign(self.learning_rate * self.learning_rate_decay_factor)
 		self.global_step = tf.Variable(0, trainable=False)
-		self.max_gradient_norm =10.0
+		self.max_gradient_norm =100.0
 		self.test_set_index = 0	#测试集数据当前读取的进度
 	def build_model(self,train):
 		self.train = (train==True)
@@ -156,12 +157,12 @@ class HRED:
 		self.loss_sum = tf.reduce_sum(tf.pack(self.losses))	#final loss	
 
 		params = tf.trainable_variables()
-		'''
+		
 		for param in params:
 			if 'embedding' not in param.name:
 				print(param.name,param)
-				self.loss_sum = self.loss_sum + 1e-4*tf.nn.l2_loss(param)
-		'''
+				self.loss_sum = self.loss_sum + self.l2*tf.nn.l2_loss(param)
+		
 		self.gradient_norms = []
 		self.updates=[]
 		#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
@@ -178,6 +179,8 @@ class HRED:
 		input_feed={}	#参数映射
 		for i in range(self.max_dialog_size):	#多句对话
 			for j in range(self.max_sentence_size):	#每句对话多个单词(后面还有batch维度)
+				#print('name',self.encoders[i][j].name)
+				#print(encoder_inputs)
 				input_feed[self.encoders[i][j].name] = encoder_inputs[i][j]
 		for i in range(len(self.decoders)):
 			for j in range(self.max_sentence_size):
@@ -202,24 +205,34 @@ class HRED:
 			#print(outputs)
 			return None,outputs[0],outputs[1]	#No gradient norm,loss, outputs
 
-	def get_batch(self,data,train=True,batch_size = -1):	# 一个数据集、是否是训练集，训练集随机取，测试集挨个遍历
+	def get_batch(self,data,train=True,batch_size = -1,iters = 1000):	# 一个数据集、是否是训练集，训练集随机取，测试集挨个遍历
 		if batch_size ==-1:
 			batch_size= self.batch_size
 		dialogs= []		#暂存选出的样本
 		if train ==True:	#训练集随机取batch个样本
 			for i in xrange(batch_size):
 				dialogs.append(random.choice(data))
-			return self.assemble(dialogs)
+			return self.assemble(dialogs,iters)
 		else:	#测试集按顺序进行选取
 			if self.test_set_index > len(data):	#测试已经取完
-				return assemble(None)
+				return assemble(None,iters)
 			test_size = min(batch_size,len(data)-self.test_set_index)	#这次应该有多少个样本
 			for i in range(test_size):
 				dialogs.append(data[self.test_set_index])
 				self.test_set_index +=1
-			return self.assemble(dialogs)			
+			return self.assemble(dialogs,iters)			
 			
-	def assemble(self,dialogs):	#给定若干个对方，返回他们的向量表示，用作模型输入
+	def assemble(self,dialogs,iters):	#给定若干个对方，返回他们的向量表示，用作模型输入
+		current_border = 1
+#		print(len(dialogs[0]),iters)
+		for i in range(1,int(self.max_dialog_size/2)+1):
+			if i*500+i*i*50 < iters:
+				current_border = i	#
+		for i in range(len(dialogs)):
+			border = min(len(dialogs[i]),current_border*2)
+			dialogs[i] = dialogs[i][:border]
+#		print('len_dialogs',len(dialogs[0]))
+
 		if dialogs ==None :	#没传进来参数
 			return None,None,None
 		if len(dialogs) ==0 :	#没传进来参数
@@ -231,14 +244,12 @@ class HRED:
 		for i in range(batch_size):	#batch
 			one_session = dialogs[i]	#对话真实存在
 			cache = []
-			#print("length of one_session",len(one_session))
 			for j in range(self.max_dialog_size):	#句子可能因为对话长度不够而不存在
 				if j< len(one_session):
 					encoder_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j]))
 					cache.append(list(reversed(one_session[j]+encoder_pad)))
 				else:
 					cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
-			#print("length_of_cache",len(cache))
 			encoder_inputs.append(cache)
 			
 			cache = []
@@ -250,7 +261,6 @@ class HRED:
 					cache.append([data_utils.GO_ID]+one_session[j]+[data_utils.EOS_ID]+decoder_pad)
 				else:
 					cache.append([data_utils.GO_ID]+[data_utils.EOS_ID]+[data_utils.PAD_ID]*(self.max_sentence_size-2))
-			#print("length_of_cache_decoder",len(cache))
 			decoder_inputs.append(cache)
 		
 		########################
@@ -261,7 +271,6 @@ class HRED:
 			for length_index in range(self.max_sentence_size):
 				cache.append(np.array([encoder_inputs[batch_index][sent_index][length_index]for batch_index in range(len(encoder_inputs))]))
 			batch_encoder.append(cache)
-		#print("deocder_inputs",decoder_inputs)
 		for sent_index in range(len(decoder_inputs[0])):	#一个对话中有10句对话
 			#输入的decoder input最外层是各个不同样本，所以这里取号样本
 			cache = []	#decoder_cache input
@@ -272,10 +281,7 @@ class HRED:
 				for i in range(len(decoder_inputs)):	#batch size，一个batch有5个sample
 					if length_index == self.max_sentence_size-1 or cache[-1][i]==data_utils.PAD_ID:
 						single_weight[i]= 0.0
-					else:
-						single_weight[i] = 1.0
-				weight_cache.append(single_weight)
-						
+				weight_cache.append(single_weight)	
 			batch_decoder.append(cache)
 			batch_weight.append(weight_cache)
 		return batch_encoder,batch_decoder,batch_weight	

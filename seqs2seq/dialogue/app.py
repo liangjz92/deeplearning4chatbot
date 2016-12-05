@@ -2,7 +2,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
+import sys
 import math
 import os
 import random
@@ -75,7 +75,7 @@ def train():
 		while True:
 			# Get a batch and make a step.
 			start_time = time.time()
-			encoder_inputs, decoder_inputs, target_weights = model.get_batch(train_set,True)
+			encoder_inputs, decoder_inputs, target_weights = model.get_batch(train_set,True,iters = step_count)
 			#提取数据
 			_, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs, target_weights)
 			step_count+=1
@@ -102,10 +102,10 @@ def decode():
 			#test_set = read_data(train_path)
 			test_set = read_data(dev_path)
 		
-			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
+			encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1,iters=1000000)
 			while encoder_inputs!=None:
 				_, step_loss, outputs= model.step(sess, encoder_inputs, decoder_inputs, target_weights)
-				#print(outputs)
+				print('step_loss',step_loss)
 				#print(encoder_inputs)
 				for batch_index in range(1):
 					for sentence_index in range(len(encoder_inputs)):
@@ -138,13 +138,14 @@ def decode():
 								print("*预测:"," ".join(tokens))
 							tokens = []
 				print("#################新对话######################")
-				encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1)
+				encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_set,False,batch_size=1,iters=10000000)
 			
 		
 		
 			
 if __name__ == '__main__':
-	decode()
-	#train()
+	
+	#decode()
+	train()
 	
 	
