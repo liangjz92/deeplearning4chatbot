@@ -94,6 +94,7 @@ class Ranker:
 			#进行状态合并，维度重新映射的权值矩阵
 			for i in range(len(self.context_out)):
 				if i%2==0:	#只有需要进行预测的时候进行状态合并
+					#concat_state = self.context_out[i]
 					concat_state = tf.concat(1,[self.context_out[i],self.history_out[i]])
 					concat_state = tf.matmul(concat_state,self.merge_weight)
 					self.concat_state.append(concat_state)
@@ -104,6 +105,8 @@ class Ranker:
 			tf.get_variable_scope().reuse_variables()
 			for i in range(len(self.true_index)):
 				#遍历所有的候选对话.true candiate
+				#tf.get_variable_scope().reuse_variables()
+				cell = None
 				if self.use_lstm:
 					cell = tf.nn.rnn_cell.LSTMCell(self.memory_size)
 				else:
@@ -129,11 +132,11 @@ class Ranker:
 			
 			for i in range(min(len(self.concat_state),len(self.false_out))):
 				#遍历可用于计算loss的所有输出
-				self.true_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.true_out[i],self.true_out[i]))))	# norm of true
-				self.false_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.false_out[i],self.false_out[i]))))	#norm of false
-				self.state_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.concat_state[i],self.concat_state[i]))))	#norm of state
-				self.mul_ts.append( tf.reduce_sum( tf.mul(self.true_out[i],self.concat_state[i] )))	#true&state mul
-				self.mul_fs.append( tf.reduce_sum( tf.mul(self.false_out[i],self.concat_state[i] )))	#false&state mul
+				self.true_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.true_out[i],self.true_out[i]),1)))	# norm of true
+				self.false_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.false_out[i],self.false_out[i]),1)))	#norm of false
+				self.state_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.concat_state[i],self.concat_state[i]),1)))	#norm of state
+				self.mul_ts.append( tf.reduce_sum( tf.mul(self.true_out[i],self.concat_state[i] ),1))	#true&state mul
+				self.mul_fs.append( tf.reduce_sum( tf.mul(self.false_out[i],self.concat_state[i] ),1))	#false&state mul
 				self.cos_ts.append( tf.div( self.mul_ts[i], tf.mul( self.true_norm[i], self.state_norm[i])))	#true&state cosine
 				self.cos_fs.append( tf.div( self.mul_fs[i], tf.mul( self.false_norm[i], self.state_norm[i])))	#false&state cosine
 				self.loss.append( tf.maximum( self.zero, tf.sub( self.margin, tf.sub( self.cos_ts[i], self.cos_fs[i]))))
@@ -141,18 +144,18 @@ class Ranker:
 
 		with tf.variable_scope("loss_compute") as scope:
 			#在训练过程中计算损失函数
-			self.loss_mean = tf.reduce_mean(self.loss)
+			self.loss_mean = tf.reduce_sum(self.loss)
 			self.gradient_norms = []
 			self.updates = []
 			opt = tf.train.AdadeltaOptimizer(self.learning_rate)
 			#优化器
 			params = tf.trainable_variables()
-			'''
+			
 			for param in params:
 				if 'embedding' not in param.name:
 					#print(param.name,param)
-					self.loss_sum = self.loss_sum + self.l2_weight * tf.nn.l2_loss(param)
-			'''
+					self.loss_mean = self.loss_mean + self.l2_weight * tf.nn.l2_loss(param)
+			
 			#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
 			opt = tf.train.AdamOptimizer(self.learning_rate)
 			gradients = tf.gradients(self.loss_mean,params)
@@ -189,9 +192,13 @@ class Ranker:
 		output_feed = [
 			self.updates,
 		    self.gradient_norms,
-		    self.loss_mean
+		    self.loss_mean,
+#self.loss,
+			#self.true_out
+
 		]
 		outputs = session.run(output_feed,input_feed)
+#		print('self.loss',outputs[3])
 		return outputs[2]
 
 	def step_test(self,session,history,candidates):
@@ -233,6 +240,7 @@ class Ranker:
 	def get_max(self, iters):
 		#获取当前迭代次数下，有效的对话长度限制
 		#课程学习
+		return 100
 		border = 1
 		for i in range(1,100):
 			if i*1000+i*i*200 < iters:
@@ -277,7 +285,7 @@ class Ranker:
 					false_pad = [data_utils.PAD_ID]*(self.max_sentence_size-len(one_session[j][1]))
 					false_cache.append(list(reversed(one_session[j][1] + false_pad)))#false candidate
 				else:
-					true_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
+					true_cache.append(list([data_utils.EOS_ID]*self.max_sentence_size))
 					false_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
 #			print('true_cache',true_cache)
 #			print('false_cache',false_cache)

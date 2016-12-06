@@ -39,6 +39,7 @@ class DU:
 		self.dev_path = '../data/dev.data'
 		self.test_path = '../data/test.data'
 		self.dict_path = '../data/medical.txt'
+		self.emd_path = '../data/emd/ylemd.bin'
 		jieba.load_userdict(self.dict_path)
 	
 	def basic_tokenizer(self,sentence):
