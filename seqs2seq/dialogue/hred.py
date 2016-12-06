@@ -154,7 +154,7 @@ class HRED:
 					self.weights[i][:-1],	#计算loss时的权重 [batch, ...]
 					softmax_loss_function = softmax_loss_function)
 			self.losses.append(self.loss)
-		self.loss_sum = tf.reduce_sum(tf.pack(self.losses))	#final loss	
+		self.loss_sum = tf.reduce_mean(tf.pack(self.losses),1)	#final loss	
 
 		params = tf.trainable_variables()
 		
