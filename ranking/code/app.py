@@ -17,19 +17,19 @@ from data_utils import DU
 from ranker import Ranker
 import json
 ########################################
-tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_rate", 0.25, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.98, "Learning rate decays by this much.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 100.0, "Clip gradients to this norm.")
 tf.app.flags.DEFINE_float("margin", 0.3, "margin between true and false candiate")
-tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
+tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("emd_size", 300, "embedding size")
-tf.app.flags.DEFINE_integer("mem_size", 300, "Size of each model layer.")
+tf.app.flags.DEFINE_integer("mem_size", 256, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("vocab_size", 30001, "vocabulary size.")
 tf.app.flags.DEFINE_integer("max_dialogue_size", "10", "how manay uts in one sess max,25")
-tf.app.flags.DEFINE_integer("max_sentence_size", "16", "how manay tokens in one sentence max 36")
-tf.app.flags.DEFINE_integer("max_trainset_size", 1000, "Limit on the size of training data (0: no limit).")
+tf.app.flags.DEFINE_integer("max_sentence_size", "20", "how manay tokens in one sentence max 36")
+tf.app.flags.DEFINE_integer("max_trainset_size", 1000000, "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer('max_devset_size',100,"how many dev samples use max")
-tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000, "How many training steps to do per checkpoint.")
+tf.app.flags.DEFINE_integer("steps_per_checkpoint", 2000, "How many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_boolean("train", True, "True to train model, False to decode model")
 tf.app.flags.DEFINE_string("ckpt_dir", "../ckpt", "check point directory.")
 FLAGS = tf.app.flags.FLAGS
@@ -68,6 +68,7 @@ class Robot:
 				use_lstm       = False,
 				train_mode     = FLAGS.train
 				)
+
 	def build_model(self,session):
 		self.model.build_model()
 		ckpt = tf.train.get_checkpoint_state(FLAGS.ckpt_dir)
@@ -95,6 +96,7 @@ class Robot:
 			load = self.model.embedding_weight.assign(emd_weight)
 			session.run(load)
 			print('word embedding load over')
+		self.train_writer = tf.train.SummaryWriter('../summary',session.graph)
 
 	def ut2ids(self,ut):	#将句子标记转换为具体的词id列表
 		#返回单个对话机器candidates的id表示
@@ -112,7 +114,6 @@ class Robot:
 		if ids ==None or len(ids) ==0:
 			return None
 		ut = []
-#		print(ids)
 		for i in range(len(ids)):
 			ut.append(self.recab[ids[i]])
 		return ' '.join(ut)
@@ -128,9 +129,8 @@ class Robot:
 		with tf.Session() as sess:
 			self.build_model(sess)
 			step_time, loss = 0.0, 0.0
-			current_step = 0
+			step_count = self.model.global_step.eval()
 			previous_losses = []
-			step_count = 0
 			while True:
 				# Get a batch and make a step.
 				start_time = time.time()
@@ -149,11 +149,14 @@ class Robot:
 					dialogs.append(self.ut2ids(temp))
 				history_batch,true_batch,false_batch = self.model.train2vec(dialogs,step_count)
 				#获取id的表达
-				step_loss = self.model.step_train(sess,history_batch,true_batch,false_batch)
+
+				step_loss,summary = self.model.step_train(sess,history_batch,true_batch,false_batch)
+				self.train_writer.add_summary(summary,step_count)
+				
 				#进行一步训练
 				step_count += 1
-				#print('\rstep_count',step_count)
 				step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
+				#print('step_time',time.time()-start_time)
 				loss += step_loss / FLAGS.steps_per_checkpoint
 				#print("step_count",step_count,"step_loss",step_loss)
 					

@@ -41,6 +41,7 @@ class Ranker:
 		self.true_emd = []
 		self.false_emd = []
 		self.embedding_weight = tf.Variable(tf.random_uniform([self.vocab_size,self.embedding_size],-1.0,1.0),name = 'embedding_size')
+		#tf.histogram_summary('embedding_weight',self.embedding_weight)	#词向量权重的统计
 		for i in range (self.max_dialogue_size):
 			#创建历史对话记录的部分
 			index = []
@@ -91,6 +92,7 @@ class Ranker:
 			self.context_out = outputs	#context rnn的历史时刻的输出
 			self.concat_state = []	#进行状态合并之后待匹配的句子表达
 			self.merge_weight = tf.Variable(tf.random_uniform([self.memory_size*2,self.memory_size],-1.0,1.0),name = 'merge')
+#			tf.histogram_summary('merge_weight',self.merge_weight)	#统计合并权重的分布
 			#进行状态合并，维度重新映射的权值矩阵
 			for i in range(len(self.context_out)):
 				if i%2==0:	#只有需要进行预测的时候进行状态合并
@@ -144,20 +146,26 @@ class Ranker:
 
 		with tf.variable_scope("loss_compute") as scope:
 			#在训练过程中计算损失函数
-			self.loss_mean = tf.reduce_sum(self.loss)
+			self.loss_mean = tf.reduce_mean(self.loss)
+			self.loss_sum = tf.reduce_sum(self.loss)
+			tf.scalar_summary('batch_reduce_mean_loss',self.loss_mean)
+			#tf.histogram_summary('batch_reduce_mean_loss',self.loss_mean)
+			tf.scalar_summary('batch_reduce_sum_loss',self.loss_sum)
+			#tf.histogram_summary('batch_reduce_sum_loss',self.loss_sum)
 			self.gradient_norms = []
 			self.updates = []
 			opt = tf.train.AdadeltaOptimizer(self.learning_rate)
 			#优化器
 			params = tf.trainable_variables()
-			
+			'''
 			for param in params:
 				if 'embedding' not in param.name:
 					#print(param.name,param)
 					self.loss_mean = self.loss_mean + self.l2_weight * tf.nn.l2_loss(param)
-			
+			'''
 			#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
-			opt = tf.train.AdamOptimizer(self.learning_rate)
+			#opt = tf.train.AdamOptimizer(self.learning_rate)
+			#gradients = tf.gradients(self.loss,params)
 			gradients = tf.gradients(self.loss_mean,params)
 			clipped_gradients, norm = tf.clip_by_global_norm(gradients,self.max_gradient_norm)
 			self.gradient_norms.append(norm)
@@ -173,9 +181,12 @@ class Ranker:
 			self.cos_cc = tf.div( self.mul_cc, tf.mul(self.context_norm, self.candidate_norm))	#cc cosine
 			
 		self.saver = tf.train.Saver(tf.all_variables())
+		self.merged = tf.merge_all_summaries()
 		#保存所有模型参数信息
 
 	def step_train(self,session,history,true_index,false_index):
+		#self.train_writer = tf.train.SummaryWriter('../summary/train',session.graph)
+
 		#进行一次训练迭代
 		input_feed={}	
 		for i in range(self.max_dialogue_size):
@@ -193,13 +204,10 @@ class Ranker:
 			self.updates,
 		    self.gradient_norms,
 		    self.loss_mean,
-#self.loss,
-			#self.true_out
-
+			self.merged
 		]
 		outputs = session.run(output_feed,input_feed)
-#		print('self.loss',outputs[3])
-		return outputs[2]
+		return outputs[2],outputs[3]
 
 	def step_test(self,session,history,candidates):
 		#执行一步测试
