@@ -122,7 +122,7 @@ class Robot:
 		train_set = json.load(open(self.du.train_path,'r'))
 		if len(train_set) > FLAGS.max_trainset_size and FLAGS.max_trainset_size!=0:
 			train_set = train_set[:FLAGS.max_trainset_size]
-		dev_set = json.load(open(self.du.train_path,'r'))
+		dev_set = json.load(open(self.du.dev_path,'r'))
 		if len(dev_set) > FLAGS.max_devset_size and FLAGS.max_devset_size!=0:
 			dev_set = dev_set[:FLAGS.max_devset_size]
 		

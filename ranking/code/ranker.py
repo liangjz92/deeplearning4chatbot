@@ -146,9 +146,11 @@ class Ranker:
 
 		with tf.variable_scope("loss_compute") as scope:
 			#在训练过程中计算损失函数
-			self.loss_mean = tf.reduce_mean(self.loss)
+			self.loss_mean = tf.reduce_mean(self.loss,1)
+			self.loss_mean_2  =tf.reduce_mean(self.loss)
 			self.loss_sum = tf.reduce_sum(self.loss)
-			tf.scalar_summary('batch_reduce_mean_loss',self.loss_mean)
+			tf.scalar_summary('batch_reduce_mean_loss_overall',self.loss_mean_2)
+			tf.histogram_summary('batch_reduce_mean_loss',self.loss_mean)
 			#tf.histogram_summary('batch_reduce_mean_loss',self.loss_mean)
 			tf.scalar_summary('batch_reduce_sum_loss',self.loss_sum)
 			#tf.histogram_summary('batch_reduce_sum_loss',self.loss_sum)
@@ -203,10 +205,12 @@ class Ranker:
 		output_feed = [
 			self.updates,
 		    self.gradient_norms,
-		    self.loss_mean,
-			self.merged
+		    self.loss_mean_2,	#变量
+			self.merged,	#summary
+			#self.loss_mean	#向量
 		]
 		outputs = session.run(output_feed,input_feed)
+		#print(outputs[4])
 		return outputs[2],outputs[3]
 
 	def step_test(self,session,history,candidates):
@@ -229,8 +233,6 @@ class Ranker:
 		###########
 		response_size = len(outputs[1])	#一次对话中，需要进行多少次预测
 		candidate_size = len(outputs[1][0])	#每次预测，需要候选多少个样本
-		#print("reponse_size",response_size)
-		#print("candiate_size",candidate_size)
 		results = []
 		for i in range(response_size):
 			context = outputs[0][i]
@@ -295,12 +297,8 @@ class Ranker:
 				else:
 					true_cache.append(list([data_utils.EOS_ID]*self.max_sentence_size))
 					false_cache.append(list([data_utils.PAD_ID]*self.max_sentence_size))
-#			print('true_cache',true_cache)
-#			print('false_cache',false_cache)
 			true_inputs.append(true_cache)
 			false_inputs.append(false_cache)
-		#print('true_inputs',true_inputs)
-		#print('false_inputs',false_inputs)
 		######################################################
 		batch_history,batch_true,batch_false = [], [], []
 		for sent_index in range(self.max_dialogue_size):
