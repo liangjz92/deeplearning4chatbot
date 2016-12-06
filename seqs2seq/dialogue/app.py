@@ -71,7 +71,7 @@ def train():
 		step_time, loss = 0.0, 0.0
 		current_step = 0
 		previous_losses = []
-		step_count = 0
+		step_count = model.global_step.eval()
 		while True:
 			# Get a batch and make a step.
 			start_time = time.time()
