@@ -36,7 +36,7 @@ FLAGS = tf.app.flags.FLAGS
 ########################################
 class Robot:
 	def __init__(self):
-		self.du = DU()
+		self.du = du()
 		self.vocab ,self.recab = self.du.initialize_vocabulary()
 		self.ids_arr= []
 		for line in open(self.du.ids_path):

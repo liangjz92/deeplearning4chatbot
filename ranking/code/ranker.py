@@ -10,7 +10,7 @@ class Ranker:
 			batch_size =20,
 			max_dialogue_size = 5,
 			max_sentence_size = 6,
-			l2_weight = 1e-7,
+			l2_weight = 1e-5,
 			margin = 0.05,
 			max_gradient_norm = 5.0,
 			learning_rate =1.0,
@@ -159,12 +159,12 @@ class Ranker:
 			opt = tf.train.AdadeltaOptimizer(self.learning_rate)
 			#优化器
 			params = tf.trainable_variables()
-			'''
+			
 			for param in params:
 				if 'embedding' not in param.name:
 					#print(param.name,param)
 					self.loss_mean = self.loss_mean + self.l2_weight * tf.nn.l2_loss(param)
-			'''
+			
 			#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
 			#opt = tf.train.AdamOptimizer(self.learning_rate)
 			#gradients = tf.gradients(self.loss,params)
