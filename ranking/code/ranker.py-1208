@@ -10,13 +10,15 @@ class Ranker:
 			batch_size =20,
 			max_dialogue_size = 5,
 			max_sentence_size = 6,
-			l2_weight = 0.2e-5,
+			l2_weight = 0,
 			margin = 0.05,
 			max_gradient_norm = 5.0,
 			learning_rate =1.0,
 			learning_rate_decay_factor = 0.9,
 			use_lstm = False,
-			train_mode = True
+			train_mode = True,
+			drop_out = 0.8,
+			layer = 2
 			):
 		self.vocab_size = vocab_size
 		self.embedding_size = embedding_size 
@@ -32,6 +34,8 @@ class Ranker:
 		self.train_mode =train_mode
 		self.global_step = tf.Variable(0, trainable=False)
 		self.margin_val = margin
+		self.drop_out = drop_out
+		self.layer  = layer
 
 	def build_model(self):
 		self.history_index = []
@@ -40,7 +44,7 @@ class Ranker:
 		self.history_emd = []
 		self.true_emd = []
 		self.false_emd = []
-		self.embedding_weight = tf.Variable(tf.random_uniform([self.vocab_size,self.embedding_size],-1.0,1.0),name = 'embedding_size')
+		self.embedding_weight = tf.Variable(tf.random_normal([self.vocab_size,self.embedding_size],-1.0,1.0),name = 'embedding_size')
 		#tf.histogram_summary('embedding_weight',self.embedding_weight)	#词向量权重的统计
 		for i in range (self.max_dialogue_size):
 			#创建历史对话记录的部分
@@ -78,6 +82,12 @@ class Ranker:
 					cell = tf.nn.rnn_cell.LSTMCell(self.memory_size)
 				else:
 					cell = tf.nn.rnn_cell.GRUCell(self.memory_size)
+				'''
+				if self.train_mode and self.drop_out!=1.0:
+					cell = tf.nn.rnn_cell.DropoutWrapper(cell,input_keep_prob=self.drop_out,output_keep_prob=self.drop_out)
+				if self.layer!=1:
+					cell = tf.nn.rnn_cell.MultiRNNCell([cell]* self.layer)
+				'''
 				(outputs,_) = tf.nn.rnn(cell,self.history_emd[i],dtype=tf.float32) #创建一个rnn来执行
 				self.history_out.append(outputs[-1])
 				if i==0:    #第一次执行结束之后，开启重用变量的功能
@@ -91,19 +101,18 @@ class Ranker:
 			(outputs,_) = tf.nn.rnn(cell,self.history_out,dtype=tf.float32) #创建一个rnn来执行
 			self.context_out = outputs	#context rnn的历史时刻的输出
 			self.concat_state = []	#进行状态合并之后待匹配的句子表达
-			self.merge_weight = tf.Variable(tf.random_uniform([self.memory_size*2,self.memory_size],-0.1,0.1),name = 'merge')
-			#self.merge_bias = tf.Variable(tf.zeros([self.memory_size]),name = 'merge_bias')
+			self.merge_weight = tf.Variable(tf.random_normal([self.memory_size*2,self.memory_size],-0.01,0.01),name = 'merge_weight')
+			self.merge_bias = tf.Variable(tf.zeros([self.memory_size],tf.float32),name = 'merge_bias')
 #			tf.histogram_summary('merge_weight',self.merge_weight)	#统计合并权重的分布
 			#进行状态合并，维度重新映射的权值矩阵
 			for i in range(len(self.context_out)):
 				if i%2==0:	#只有需要进行预测的时候进行状态合并
-					concat_state = self.context_out[i]
+					#concat_state = self.context_out[i]
 					concat_state = tf.concat(1,[self.context_out[i],self.history_out[i]])
 					concat_state = tf.matmul(concat_state,self.merge_weight)
-					#concat_state =tf.add( tf.matmul(concat_state,self.merge_weight), self.merge_bias)
-					#concat_state = tf.sigmoid(concat_state)
+					concat_state = tf.add(concat_state,self.merge_bias)	#
+					concat_state = tf.sigmoid(concat_state)	#sigmoid
 					self.concat_state.append(concat_state)
-					#self.concat_state.append(self.context_out[i])
 			#合并完成
 					
 		with tf.variable_scope("sentnce_rnn") as scope:
@@ -117,6 +126,12 @@ class Ranker:
 					cell = tf.nn.rnn_cell.LSTMCell(self.memory_size)
 				else:
 					cell = tf.nn.rnn_cell.GRUCell(self.memory_size)
+				'''
+				if self.train_mode and self.drop_out!=1.0:
+					cell = tf.nn.rnn_cell.DropoutWrapper(cell,input_keep_prob=self.drop_out,output_keep_prob=self.drop_out)
+				if self.layer!=1:
+					cell = tf.nn.rnn_cell.MultiRNNCell([cell]* self.layer)
+				'''
 				(outputs,_) = tf.nn.rnn(cell,self.true_emd[i],dtype=tf.float32) #创建一个rnn来执行
 				self.true_out.append(outputs[-1])	#获取最后一时刻的输出
 			for i in range(len(self.false_index)):
@@ -128,7 +143,7 @@ class Ranker:
 				(outputs,_) = tf.nn.rnn(cell,self.false_emd[i],dtype=tf.float32) #创建一个rnn来执行
 				self.false_out.append(outputs[-1])	#获取最后一时刻的输出
 		
-		with tf.variable_scope("forward_loss_compute") as scope:
+		with tf.variable_scope("loss_compute") as scope:
 			self.true_norm, self.false_norm, self.state_norm =[], [], []
 			self.mul_ts, self.mul_fs = [], []
 			self.cos_ts, self.cos_fs = [], []
@@ -138,52 +153,47 @@ class Ranker:
 			
 			for i in range(min(len(self.concat_state),len(self.false_out))):
 				#遍历可用于计算loss的所有输出
-				self.true_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.true_out[i],self.true_out[i]),1)))
-				# norm of true
-				self.false_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.false_out[i],self.false_out[i]),1)))
-				#norm of false
-				self.state_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.concat_state[i],self.concat_state[i]),1)))
-				#norm of state
-				self.mul_ts.append( tf.reduce_sum( tf.mul(self.true_out[i],self.concat_state[i] ),1))
-				#true&state mul
-				self.mul_fs.append( tf.reduce_sum( tf.mul(self.false_out[i],self.concat_state[i] ),1))
-				#false&state mul
-				self.cos_ts.append( tf.div( self.mul_ts[i], tf.mul( self.true_norm[i], self.state_norm[i])))
-				#true&state cosine
-				self.cos_fs.append( tf.div( self.mul_fs[i], tf.mul( self.false_norm[i], self.state_norm[i])))
-				#false&state cosine
+				self.true_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.true_out[i],self.true_out[i]),1)))	# norm of true
+				self.false_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.false_out[i],self.false_out[i]),1)))	#norm of false
+				self.state_norm.append(tf.sqrt(tf.reduce_sum(tf.mul(self.concat_state[i],self.concat_state[i]),1)))	#norm of state
+				self.mul_ts.append( tf.reduce_sum( tf.mul(self.true_out[i],self.concat_state[i] ),1))	#true&state mul
+				self.mul_fs.append( tf.reduce_sum( tf.mul(self.false_out[i],self.concat_state[i] ),1))	#false&state mul
+				self.cos_ts.append( tf.div( self.mul_ts[i], tf.mul( self.true_norm[i], self.state_norm[i])))	#true&state cosine
+				self.cos_fs.append( tf.div( self.mul_fs[i], tf.mul( self.false_norm[i], self.state_norm[i])))	#false&state cosine
 				self.loss.append( tf.maximum( self.zero, tf.sub( self.margin, tf.sub( self.cos_ts[i], self.cos_fs[i]))))
 				#margin loss max (0,margin-diff)  diff= cos_ts-cos_fs
 
 		with tf.variable_scope("loss_compute") as scope:
 			#在训练过程中计算损失函数
-			self.loss_mean = tf.reduce_mean(self.loss,1)
-			self.loss_mean_2  =tf.reduce_mean(self.loss)
-			self.loss_sum = tf.reduce_sum(self.loss)
-			tf.scalar_summary('batch_reduce_mean_loss_overall',self.loss_mean_2)
-			tf.histogram_summary('batch_reduce_mean_loss',self.loss_mean)
-			#tf.histogram_summary('batch_reduce_mean_loss',self.loss_mean)
-			tf.scalar_summary('batch_reduce_sum_loss',self.loss_sum)
-			#tf.histogram_summary('batch_reduce_sum_loss',self.loss_sum)
+			self.loss_mean = tf.reduce_mean(self.loss,1)	#batch 之间做平均
+			self.loss_mean_sum  = tf.reduce_mean(self.loss)
+			self.loss_batch_sum = tf.reduce_sum(self.loss)
+
+			#tf.histogram_summary('batch_loss_reduce_mean_vec',self.loss_mean)
+			tf.scalar_summary('batch_loss_reduce_mean_sum',self.loss_mean_sum)
+			tf.scalar_summary('batch_reduce_sum_loss',self.loss_batch_sum)	
+
 			self.gradient_norms = []
 			self.updates = []
-			#优化器
+
 			params = tf.trainable_variables()
-			self.l2_loss = []
+			self.l2_loss =[]
 			for param in params:
 				if 'embedding' not in param.name:
 					#print(param.name,param)
 					self.l2_loss.append(tf.nn.l2_loss(param))
-					#self.loss_mean = self.loss_mean + self.l2_weight * tf.nn.l2_loss(param)
-			#self.l2_loss = tf.reduce_sum(self.l2_loss)
-			tf.scalar_summary('param_l2_loss',tf.reduce_sum(self.l2_loss))
-			#self.loss_mean = self.loss_mean + tf.reduce_sum(self.l2_loss) * self.l2_weight
+			self.l2_loss = tf.reduce_sum(self.l2_loss)
+			tf.scalar_summary('params_l2_loss',self.l2_loss)
+			#self.act_loss = self.loss_mean_sum + self.l2_loss
+			#self.act_loss = self.loss_mean_sum
+			#tf.scalar_summary('final_loss',self.act_loss)
+
 			
 			#opt = tf.train.AdadeltaOptimizer(self.learning_rate)
-			opt = tf.train.GradientDescentOptimizer(self.learning_rate)
-			#opt = tf.train.AdamOptimizer(self.learning_rate)
+			#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+			opt = tf.train.AdamOptimizer(self.learning_rate)
 			#gradients = tf.gradients(self.loss,params)
-			gradients = tf.gradients(self.loss_mean,params)
+			gradients = tf.gradients(self.loss_mean, params)
 			clipped_gradients, norm = tf.clip_by_global_norm(gradients,self.max_gradient_norm)
 			self.gradient_norms.append(norm)
 			self.updates.append(opt.apply_gradients(zip(clipped_gradients, params), global_step=self.global_step))
@@ -220,9 +230,9 @@ class Ranker:
 		output_feed = [
 			self.updates,
 		    self.gradient_norms,
-		    self.loss_mean_2,	#变量
+		    self.loss_batch_sum,	#标量损失
 			self.merged,	#summary
-			#self.loss_mean	#向量
+			#self.loss_mean	#向量损失
 		]
 		outputs = session.run(output_feed,input_feed)
 		#print(outputs[4])

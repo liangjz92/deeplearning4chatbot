@@ -20,13 +20,12 @@ import json
 tf.app.flags.DEFINE_float("learning_rate", 0.25, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.98, "Learning rate decays by this much.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 100.0, "Clip gradients to this norm.")
-tf.app.flags.DEFINE_float("margin", 0.3, "margin between true and false candiate")
 tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("emd_size", 300, "embedding size")
 tf.app.flags.DEFINE_integer("mem_size", 64, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("vocab_size", 30001, "vocabulary size.")
-tf.app.flags.DEFINE_integer("max_dialogue_size", "10", "how manay uts in one sess max,25")
-tf.app.flags.DEFINE_integer("max_sentence_size", "20", "how manay tokens in one sentence max 36")
+tf.app.flags.DEFINE_integer("tag_size", 30001, "tag size.")
+tf.app.flags.DEFINE_integer("max_ut_size", "20", "how manay tokens in one sentence max 36")
 tf.app.flags.DEFINE_integer("max_trainset_size", 1000000, "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer('max_devset_size',100,"how many dev samples use max")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000, "How many training steps to do per checkpoint.")
@@ -38,6 +37,7 @@ class Robot:
 	def __init__(self):
 		self.du = du()
 		self.vocab ,self.recab = self.du.initialize_vocabulary()
+		self.tag,self.retag = self.du.init_tag()	#载入标签和对应的id
 		self.ids_arr= []
 		for line in open(self.du.ids_path):
 			line = line.strip()
@@ -49,19 +49,17 @@ class Robot:
 			else:
 				self.ids_arr.append([])
 		
-		self.mark = json.load(open(self.du.mark_path))
 		self.train = json.load(open(self.du.train_path))
 		self.dev = json.load(open(self.du.dev_path))
 		self.test = json.load(open(self.du.test_path))
 			
-		self.model = Ranker(
+		self.model = Marker(
 				vocab_size     = FLAGS.vocab_size,
 				embedding_size = FLAGS.emd_size,
 				memory_size    = FLAGS.mem_size,
+				label_size     = FLAGS.tag_size,
 				batch_size     = FLAGS.batch_size,
-				max_dialogue_size = FLAGS.max_dialogue_size,
-				max_sentence_size = FLAGS.max_sentence_size,
-				margin         = FLAGS.margin,
+				max_ut_size    = FLAGS.max_ut_size,
 				max_gradient_norm = FLAGS.max_gradient_norm,
 				learning_rate  = FLAGS.learning_rate,
 				learning_rate_decay_factor = FLAGS.learning_rate_decay_factor,
@@ -104,10 +102,7 @@ class Robot:
 			return None
 		result =  []
 		for i in range(len(ut)):
-			cache = []
-			for j in range(len(ut[i])):
-				cache.append(self.ids_arr[ut[i][j]])
-			result.append(cache)
+			result.append(self.ids_arr[ut[i]])
 		return result
 
 	def ids2ut(self,ids):	#将id转换为文本单词句子
@@ -119,7 +114,7 @@ class Robot:
 		return ' '.join(ut)
 	
 	def run_train(self):
-		print('running train op')
+		print('Running train op')
 		train_set = json.load(open(self.du.train_path,'r'))
 		if len(train_set) > FLAGS.max_trainset_size and FLAGS.max_trainset_size!=0:
 			train_set = train_set[:FLAGS.max_trainset_size]
