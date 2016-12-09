@@ -136,7 +136,7 @@ class Robot:
 	def run_train(self):
 		print('running train op')
 		train_set = json.load(open(self.du.train_path,'r'))
-		trian_set2 = train_set[:100]
+		train_set2 = train_set[:100]
 		if len(train_set) > FLAGS.max_trainset_size and FLAGS.max_trainset_size!=0:
 			train_set = train_set[:FLAGS.max_trainset_size]
 		

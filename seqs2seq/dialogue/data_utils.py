@@ -1,17 +1,12 @@
 #coding=utf-8
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import gzip
 import os
 import re
 import tarfile
 import jieba
 from six.moves import urllib
-
 from tensorflow.python.platform import gfile
-
+import tensorflow as tf
 # Special vocabulary symbols - we always put them at the start.
 _PAD = b"_PAD"
 _GO = b"_GO"
@@ -37,8 +32,6 @@ def basic_tokenizer(sentence):
 def jieba_tokenizer(sentence):
 	sentence =sentence.replace("^"," ")
 	#一个简单的中文分词器
-#print(sentence)
-#	print(jieba.lcut(sentence))
 	return jieba.lcut(sentence)
 
 def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,tokenizer=None, normalize_digits=True):
@@ -49,30 +42,22 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,tokenizer=
 		with gfile.GFile(data_path, mode="rb") as f:
 			counter = 0
 			for line in f:
-#				print(line)
 				counter += 1
 				if counter % 100000 == 0:
 					print("	processing line %d" % counter)
 				tokens = jieba_tokenizer(line)
-#				print(tokens)
 				for w in tokens:
 					word = re.sub(_DIGIT_RE, b"0", w) if normalize_digits else w
-					#word =w
-					#print(word)
 					if len(word)>10:
 						continue		
 					if word in vocab:
 						vocab[word] += 1
 					else:
 						vocab[word] = 1
-			#print(vocab)
 			vocab_list = _START_VOCAB + sorted(vocab, key=vocab.get, reverse=True)
 			if len(vocab_list) > max_vocabulary_size:
-			#	print(max_vocabulary_size)
 				vocab_list = vocab_list[:max_vocabulary_size]
 			with gfile.GFile(vocabulary_path, mode="wb") as vocab_file:
-		#	print(len(vocab_list))
-		#		print(vocab_list)
 				for w in vocab_list:
 					print (w)
 					vocab_file.write((w + b"\n").encode("utf-8"))
