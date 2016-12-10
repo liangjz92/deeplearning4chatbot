@@ -39,6 +39,7 @@ class DU:
 		self.test_path = '../data/test.data'
 		self.dict_path = '../data/medical.txt'
 		self.emd_path = '../data/emd/ylemd.bin'
+		self.tag_path = '../data/tag.data'
 		jieba.load_userdict(self.dict_path)
 	
 	def basic_tokenizer(self,sentence):
@@ -91,6 +92,17 @@ class DU:
 			return vocab, rev_vocab
 		else:
 			raise ValueError("Vocabulary file %s not found.", vocabulary_path)
+	def init_tag(self):
+		try:
+			tags = []
+			tag_file = open(self.tag_path,'r')
+			for line in tag_file:
+				tag= line.strip()
+				tags.append(tag)
+			rtags = dict([(x,y) for (y,x) in enumerate(tags) ])
+			return tags,rtags
+		except Exception:
+			print('载入tag标签时发生异常')
 
 	def sentence_to_token_ids(self, sentence, vocabulary,tokenizer=None, normalize_digits=True):
 		words = self.jieba_tokenizer(sentence)

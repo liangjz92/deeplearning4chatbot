@@ -1,7 +1,7 @@
 #coding=utf-8
 import tensorflow as tf
 import numpy as np
-#import data_utils
+import data_utils
 #根据的描述产生标签，做成分类模型
 class Marker:
 	def __init__(self,
@@ -10,12 +10,13 @@ class Marker:
 			memory_size = 10,
 			batch_size =20,		
 			max_ut_size = 7,	#句子最长是多少
-			lable_size = 5,	#总共有多少种标签
+			label_size = 5,	#总共有多少种标签
 			l2_weight = 1e-7,
 			max_gradient_norm = 5.0,
 			learning_rate =0.01,
 			learning_rate_decay_factor = 0.95,
-			train_mode = True
+			train_mode = True,
+			use_lstm = False
 			):
 
 		self.vocab_size = vocab_size
@@ -29,7 +30,8 @@ class Marker:
 		self.learning_rate_decay_op = self.learning_rate.assign(self.learning_rate * learning_rate_decay_factor)
 		self.train_mode =train_mode
 		self.global_step = tf.Variable(0, trainable=False)
-		self.label_size  =lable_size
+		self.label_size  =label_size
+		self.use_lstm = use_lstm
 
 	def build_model(self):
 		self.ut_index =[]
@@ -67,7 +69,6 @@ class Marker:
 			tf.scalar_summary('batch_reduce_sum_loss',self.loss_sum)
 			self.gradient_norms = []
 			self.updates = []
-			opt = tf.train.AdadeltaOptimizer(self.learning_rate)
 			#优化器
 			params = tf.trainable_variables()
 			for param in params:
@@ -75,6 +76,7 @@ class Marker:
 					#print(param.name,param)
 					self.loss_mean = self.loss_mean + self.l2_weight * tf.nn.l2_loss(param)
 			#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+			opt = tf.train.AdadeltaOptimizer(self.learning_rate)
 			#opt = tf.train.AdamOptimizer(self.learning_rate)
 			gradients = tf.gradients(self.loss_mean,params)
 			clipped_gradients, norm = tf.clip_by_global_norm(gradients,self.max_gradient_norm)
@@ -90,7 +92,7 @@ class Marker:
 		#保存所有模型参数信息
 #####################################################
 
-	def step_train(self,session,ut_arr,lable_arr):
+	def step_train(self,session,ut_arr,label_arr):
 		#进行一次训练迭代
 		input_feed={}
 		for i in range(self.max_ut_size):
@@ -119,7 +121,7 @@ class Marker:
 		  self.loss
 		]
 		outputs = session.run(output_feed,input_feed)
-		return outputs
+		return outputs[0]
 
 ######################################################
 	def step_demo(self, session,ut_arr):
@@ -139,11 +141,11 @@ class Marker:
 		ut_arr = []
 		batch_size = len(sample_arr)
 		labels = np.zeros((batch_size, self.label_size))
-		vec_cahce = []
+		vec_cache = []
 		for i in range(batch_size):
 			pad = [data_utils.PAD_ID]*(self.max_ut_size-len(sample_arr[i][0]))	#0是句子
 			vec_cache.append(list(reversed(sample_arr[i][0]+pad)))	#反转输入
-			for j in range(len(sample_arr[i][1]))
+			for j in range(len(sample_arr[i][1])):
 				index = int (sample_arr[i][1][j])
 				if index < self.label_size:
 					labels[i][index] = 1.0

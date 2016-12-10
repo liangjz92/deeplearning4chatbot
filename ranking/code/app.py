@@ -17,8 +17,8 @@ from data_utils import DU
 from ranker import Ranker
 import json
 ########################################
-tf.app.flags.DEFINE_float("learning_rate", 0.1, "Learning rate.")
-tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.9, "Learning rate decays by this much.")
+tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.95, "Learning rate decays by this much.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 15.0, "Clip gradients to this norm.")
 tf.app.flags.DEFINE_float("margin", 0.3, "margin between true and false candiate")
 tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size to use during training.")
@@ -227,7 +227,7 @@ class Robot:
 
 					#print ("global step %d learning rate %.4f step-time %.4f average loss %.4f" 
 					#		%(self.model.global_step.eval(), self.model.learning_rate.eval(), step_time, loss))
-					loss = MAP/count
+					#loss = MAP/count
 					if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
 						sess.run(self.model.learning_rate_decay_op)
 					previous_losses.append( loss)

@@ -4,6 +4,7 @@
 *checkpoint
 *.ckpt*
 *.bin
+*events*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

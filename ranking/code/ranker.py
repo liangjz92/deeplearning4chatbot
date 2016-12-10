@@ -10,7 +10,7 @@ class Ranker:
 			batch_size =20,
 			max_dialogue_size = 5,
 			max_sentence_size = 6,
-			l2_weight = 0.2e-5,
+			l2_weight =1e-5,
 			margin = 0.05,
 			max_gradient_norm = 5.0,
 			learning_rate =1.0,
@@ -100,6 +100,7 @@ class Ranker:
 					concat_state = self.context_out[i]
 					concat_state = tf.concat(1,[self.context_out[i],self.history_out[i]])
 					concat_state = tf.matmul(concat_state,self.merge_weight)
+					concat_stats = tf.tanh(concat_state)
 					#concat_state =tf.add( tf.matmul(concat_state,self.merge_weight), self.merge_bias)
 					#concat_state = tf.sigmoid(concat_state)
 					self.concat_state.append(concat_state)
@@ -159,12 +160,10 @@ class Ranker:
 			#在训练过程中计算损失函数
 			self.loss_mean = tf.reduce_mean(self.loss,1)
 			self.loss_mean_2  =tf.reduce_mean(self.loss)
-			self.loss_sum = tf.reduce_sum(self.loss)
+			self.loss_sum = tf.reduce_sum(self.loss_mean)
 			tf.scalar_summary('batch_reduce_mean_loss_overall',self.loss_mean_2)
 			tf.histogram_summary('batch_reduce_mean_loss',self.loss_mean)
-			#tf.histogram_summary('batch_reduce_mean_loss',self.loss_mean)
 			tf.scalar_summary('batch_reduce_sum_loss',self.loss_sum)
-			#tf.histogram_summary('batch_reduce_sum_loss',self.loss_sum)
 			self.gradient_norms = []
 			self.updates = []
 			#优化器
@@ -172,15 +171,17 @@ class Ranker:
 			self.l2_loss = []
 			for param in params:
 				if 'embedding' not in param.name:
-					#print(param.name,param)
 					self.l2_loss.append(tf.nn.l2_loss(param))
 					#self.loss_mean = self.loss_mean + self.l2_weight * tf.nn.l2_loss(param)
 			#self.l2_loss = tf.reduce_sum(self.l2_loss)
-			tf.scalar_summary('param_l2_loss',tf.reduce_sum(self.l2_loss))
-			#self.loss_mean = self.loss_mean + tf.reduce_sum(self.l2_loss) * self.l2_weight
+			tf.scalar_summary('param_l2_loss',tf.reduce_sum(self.l2_loss)*self.l2_weight)
+			self.loss_mean = self.loss_mean + tf.reduce_sum(self.l2_loss) * self.l2_weight
+			self.loss_sum2 = tf.reduce_sum(self.loss_mean)
 			
-			#opt = tf.train.AdadeltaOptimizer(self.learning_rate)
-			opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+			tf.scalar_summary('batch_reduce_sum_loss_with_l2',self.loss_sum2)
+			
+			opt = tf.train.AdadeltaOptimizer(self.learning_rate)
+			#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
 			#opt = tf.train.AdamOptimizer(self.learning_rate)
 			#gradients = tf.gradients(self.loss,params)
 			gradients = tf.gradients(self.loss_mean,params)
