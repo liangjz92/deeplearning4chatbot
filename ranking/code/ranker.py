@@ -40,7 +40,8 @@ class Ranker:
 		self.history_emd = []
 		self.true_emd = []
 		self.false_emd = []
-		self.embedding_weight = tf.Variable(tf.random_uniform([self.vocab_size,self.embedding_size],-1.0,1.0),name = 'embedding_size')
+		with tf.variable_scope("embedding") as scope:
+			self.embedding_weight = tf.Variable(tf.random_uniform([self.vocab_size,self.embedding_size],-1.0,1.0),name = 'embedding_size')
 		#tf.histogram_summary('embedding_weight',self.embedding_weight)	#词向量权重的统计
 		for i in range (self.max_dialogue_size):
 			#创建历史对话记录的部分
@@ -92,15 +93,16 @@ class Ranker:
 			self.context_out = outputs	#context rnn的历史时刻的输出
 			self.concat_state = []	#进行状态合并之后待匹配的句子表达
 			self.merge_weight = tf.Variable(tf.random_uniform([self.memory_size*2,self.memory_size],-0.1,0.1),name = 'merge')
-			#self.merge_bias = tf.Variable(tf.zeros([self.memory_size]),name = 'merge_bias')
+			self.merge_bias = tf.Variable(tf.zeros([self.memory_size]),name = 'merge_bias')
 #			tf.histogram_summary('merge_weight',self.merge_weight)	#统计合并权重的分布
 			#进行状态合并，维度重新映射的权值矩阵
 			for i in range(len(self.context_out)):
 				if i%2==0:	#只有需要进行预测的时候进行状态合并
 					concat_state = self.context_out[i]
-					concat_state = tf.concat(1,[self.context_out[i],self.history_out[i]])
-					concat_state = tf.matmul(concat_state,self.merge_weight)
-					concat_stats = tf.tanh(concat_state)
+					concat_state = tf.concat(1,[self.context_out[i],self.history_out[i]])	#state merge
+					concat_state = tf.matmul(concat_state,self.merge_weight)	#weight
+					concat_state =tf.add( concat_state, self.merge_bias)	#bias
+					concat_state = tf.tanh(concat_state)
 					#concat_state =tf.add( tf.matmul(concat_state,self.merge_weight), self.merge_bias)
 					#concat_state = tf.sigmoid(concat_state)
 					self.concat_state.append(concat_state)
