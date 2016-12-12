@@ -41,13 +41,13 @@ class DU:
 		self.dict_path = '../data/medical.txt'
 		self.emd_path = '../data/emd/ylemd.bin'
 		jieba.load_userdict(self.dict_path)
-	
+	'''
 	def basic_tokenizer(self,sentence):
 		words = []
 		for space_separated_fragment in sentence.strip().split():
 			words.extend(re.split(_WORD_SPLIT, space_separated_fragment))
 		return [w for w in words if w]
-
+	'''
 	def jieba_tokenizer(self,sentence):
 		return jieba.lcut(sentence)
 
@@ -93,7 +93,7 @@ class DU:
 		else:
 			raise ValueError("Vocabulary file %s not found.", vocabulary_path)
 
-	def sentence_to_token_ids(self, sentence, vocabulary,tokenizer=None, normalize_digits=True):
+	def sentence_to_token_ids(self, sentence, vocabulary,tokenizer=None, normalize_digits=False):
 		words = self.jieba_tokenizer(sentence)
 		words = [w.encode('utf-8') for w in words]
 		if not normalize_digits:
@@ -101,7 +101,7 @@ class DU:
 		# Normalize digits by 0 before looking words up in the vocabulary.
 		return [vocabulary.get(re.sub(_DIGIT_RE, b"0", w), UNK_ID) for w in words]
 
-	def data_to_token_ids(self,  tokenizer=None, normalize_digits=True):
+	def data_to_token_ids(self,  tokenizer=None, normalize_digits=False):
 		data_path  =self.ut_path
 		target_path = self.ids_path
 		vacab_path = self.vocab_path
@@ -124,7 +124,7 @@ class DU:
 
 if __name__ =="__main__":
 	temp = DU()
-	temp.create_vocabulary(30000,False)
+	temp.create_vocabulary(40000,False)
 	temp.data_to_token_ids()
 	
 	

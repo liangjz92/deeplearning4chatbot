@@ -23,11 +23,12 @@ class Maker:
 			self.stop_line.append(line)
 		self.ac_dialogs = []
 	def step_1(self):
+		#首问和结束问 
 		cache = {}
 		for line in open(self.data_path):
 			temp = []
 			sess =line.strip().split('^')
-			if len(sess)<10 or len(sess)> 25:
+			if len(sess)<2 or len(sess)> 500:
 				continue
 			for i in range(len(sess)):
 				if i%2==1:
@@ -39,7 +40,7 @@ class Maker:
 						if item in sess[i]:
 							stop_mark = True
 							break
-					if stop_mark:
+					if stop_mark:	#后面的对话不要了
 						i = len(sess)
 						continue
 					#print('host:'+sess[i].decode('utf-8'))
@@ -48,7 +49,10 @@ class Maker:
 				#else:
 					#print('user:'+sess[i].decode('utf-8'))
 			if not '用药咨询' in temp[0]:
-				self.ac_dialogs.append(temp)	
+				if len(temp)>=2:
+					self.ac_dialogs.append(temp)	
+				else:
+					print(temp)
 		x = sorted(cache.items(), lambda x, y: cmp(y[1], x[1]))
 		for item in x[100:500]:
 			if len(item[0])>30:
@@ -57,6 +61,7 @@ class Maker:
 			#print(item[1])
 	
 	def step_2(self):
+		#处理图片和连接
 		pimg = re.compile(r'<img src=\'.*\'/>')
 		pitem = re.compile(r'<a target=.*>查看大图</a>')
 		for sess in self.ac_dialogs:
@@ -78,6 +83,11 @@ class Maker:
 #				print(sess[1])
 		
 	def step_4(self):
+		ac_cache = []
+		ac_cache, self.ac_dialogs = self.ac_dialogs,ac_cache
+		for item in ac_cache:
+			if len(item)>=2:
+				self.ac_dialogs.append(item)
 		self.ut_arr = []
 		self.ut_mark= []
 		self.id_arr = []

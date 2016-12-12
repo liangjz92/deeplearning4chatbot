@@ -100,10 +100,10 @@ class Ranker:
 				if i%2==0:	#只有需要进行预测的时候进行状态合并
 					concat_state = self.context_out[i]
 					concat_state = tf.concat(1,[self.context_out[i],self.history_out[i]])	#state merge
+					#concat_state = tf.concat(1,[self.context_out[i],self.history_out[0]])	#state merge
 					concat_state = tf.matmul(concat_state,self.merge_weight)	#weight
 					concat_state =tf.add( concat_state, self.merge_bias)	#bias
-					concat_state = tf.tanh(concat_state)
-					#concat_state =tf.add( tf.matmul(concat_state,self.merge_weight), self.merge_bias)
+					#concat_state = tf.tanh(concat_state)
 					#concat_state = tf.sigmoid(concat_state)
 					self.concat_state.append(concat_state)
 					#self.concat_state.append(self.context_out[i])
@@ -341,6 +341,7 @@ class Ranker:
 		candidate_inputs =[]
 		if (history ==None) or len(history)==0 : #没传进来参数
 			return None,None
+		#print(history)
 		candidate_size = len(history[1])
 		#print('candidate_size',candidate_size)
 		cache = []

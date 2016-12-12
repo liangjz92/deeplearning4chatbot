@@ -135,7 +135,7 @@ class DU:
 
 if __name__ =="__main__":
 	temp = DU()
-	temp.create_vocabulary(30000,False)
+	temp.create_vocabulary(40000,False)
 	temp.data_to_token_ids()
 	
 	

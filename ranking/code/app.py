@@ -18,13 +18,13 @@ from ranker import Ranker
 import json
 ########################################
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
-tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.95, "Learning rate decays by this much.")
+tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.2, "Learning rate decays by this much.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 15.0, "Clip gradients to this norm.")
 tf.app.flags.DEFINE_float("margin", 0.3, "margin between true and false candiate")
 tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("emd_size", 300, "embedding size")
 tf.app.flags.DEFINE_integer("mem_size", 256, "Size of each model layer.")
-tf.app.flags.DEFINE_integer("vocab_size", 30001, "vocabulary size.")
+tf.app.flags.DEFINE_integer("vocab_size", 40001, "vocabulary size.")
 tf.app.flags.DEFINE_integer("max_dialogue_size", "10", "how manay uts in one sess max,25")
 tf.app.flags.DEFINE_integer("max_sentence_size", "20", "how manay tokens in one sentence max 36")
 tf.app.flags.DEFINE_integer("max_trainset_size", 1000000, "Limit on the size of training data (0: no limit).")
@@ -182,6 +182,7 @@ class Robot:
 										#统计在训练过程中时间和平均损失等信息
 					pat1, pat3, MAP, count = 0.0, 0.0, 0.0, 0.0
 					for i in range(len(dev_set)):
+						#print(dev_set[i])
 						dialog = self.ut2ids(dev_set[i])
 						dialog1 = dialog[:]
 						dialog,candidates  = self.model.test2vec(dialog)
@@ -269,6 +270,7 @@ class Robot:
 			test_set = json.load(open(self.du.train_path,'r'))
 			pat1, pat3, MAP,count = 0.0, 0.0, 0.0, 0.0
 			for i in range(len(test_set)):
+				#print(test_set[i])
 				dialog = self.ut2ids(test_set[i])
 				dialog1 = dialog[:]
 				dialog,candidates  = self.model.test2vec(dialog)

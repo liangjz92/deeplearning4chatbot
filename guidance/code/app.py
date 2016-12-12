@@ -19,17 +19,17 @@ from marker import Marker
 import json
 ########################################
 tf.app.flags.DEFINE_float("learning_rate", 0.25, "Learning rate.")
-tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.98, "Learning rate decays by this much.")
+tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.5, "Learning rate decays by this much.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm.")
-tf.app.flags.DEFINE_integer("batch_size", 16, "Batch size to use during training.")
+tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("emd_size", 300, "embedding size")
 tf.app.flags.DEFINE_integer("mem_size", 64, "Size of each model layer.")
-tf.app.flags.DEFINE_integer("vocab_size", 30001, "vocabulary size.")
-tf.app.flags.DEFINE_integer("tag_size", 30001, "tag size.")
+tf.app.flags.DEFINE_integer("vocab_size", 40001, "vocabulary size.")
+tf.app.flags.DEFINE_integer("tag_size", 180, "tag size.")
 tf.app.flags.DEFINE_integer("max_ut_size", "20", "how manay tokens in one sentence max 36")
-tf.app.flags.DEFINE_integer("max_trainset_size", 1000, "Limit on the size of training data (0: no limit).")
-tf.app.flags.DEFINE_integer('max_devset_size',100,"how many dev samples use max")
-tf.app.flags.DEFINE_integer("steps_per_checkpoint", 2000, "aHow many training steps to do per checkpoint.")
+tf.app.flags.DEFINE_integer("max_trainset_size", 100, "Limit on the size of training data (0: no limit).")
+tf.app.flags.DEFINE_integer('max_devset_size',10,"how many dev samples use max")
+tf.app.flags.DEFINE_integer("steps_per_checkpoint", 20, "aHow many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_boolean("train", True, "True to train model, False to decode model")
 tf.app.flags.DEFINE_string("ckpt_dir", "../ckpt", "check point directory.")
 FLAGS = tf.app.flags.FLAGS
@@ -121,7 +121,7 @@ class Robot:
 	def run_train(self):
 		print('Running train op')
 		train_set = json.load(open(self.du.train_path,'r'))
-		train_set2 = train_set[:100]	#用于测试模型在训练集上的得分
+		train_set2 = train_set[:10]	#用于测试模型在训练集上的得分
 		if len(train_set) > FLAGS.max_trainset_size and FLAGS.max_trainset_size!=0:
 			train_set = train_set[:FLAGS.max_trainset_size]
 		dev_set = json.load(open(self.du.dev_path,'r'))
@@ -160,8 +160,8 @@ class Robot:
 						samples = self.ut2ids(samples)
 						ut_arr,labels = self.model.sample2vec(samples)
 						scores = self.model.step_test(sess,ut_arr,labels)
-						top3 = self.cal_score(scores,labels_cache)
-						print('top3 hit:\t%.4f'%(top3))
+						hit_count,all_count = self.cal_score(scores,labels_cache)
+						print('top3 hit:\t%.4f'%(hit_count/all_count))
 					print ("global step %d learning rate %.4f step-time %.4f average loss %.4f" 
 							%(self.model.global_step.eval(), self.model.learning_rate.eval(), step_time, loss))
 					if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
@@ -177,16 +177,22 @@ class Robot:
 		#print(scores.shape)
 		#print(labels)
 		batch_size = scores.shape[0]
-		count = 0.0
+		hit_count = 0.0
+		all_count = 0.0
 		for i in range(batch_size):
 			logit = scores[i,:]
-			logit.argsort()[-3:][::-1]
+			tops = logit.argsort()[-3:][::-1]
+			print('logit',tops)
+			print('labels',labels[i])
 			tags =set(labels[i])
-			for j in range(len(logit)):
-				if logit[j] in tags:
-					count = count+1
-		count =count/(batch_size * 3)
-		return count
+			for j in range(len(tops)):
+				print(tops[j],logit[tops[j]])
+				if tops[j] in tags:
+					hit_count = hit_count+1
+			for k in tags:
+				print(k,logit[k])
+			all_count = all_count + len(tags)
+		return hit_count,all_count
 			
 					
 					
@@ -195,23 +201,25 @@ class Robot:
 		#模型测试
 		with tf.Session() as sess:
 			self.build_model(sess)
-			test_set = json.load(open(self.du.test_path,'r'))
+			#test_set = json.load(open(self.du.test_path,'r'))
+			test_set = json.load(open(self.du.train_path,'r'))
 			#test_set = json.load(open(self.du.traina_path,'r'))
 			cache = []
 			label_cache =[]
-			top3_sum=0.0
-			count = 0
+			hit_count,all_count = 0.0,0.0
+			print('length of test_set:',len(test_set))
 			for i in range(len(test_set)):
 				cache.append(test_set[i])
 				label_cache.append(test_set[i][1])
 				if i%200==0 or i==(len(test_set)-1):
-					samples = self.ut2ids(test_set[i])
+					samples = self.ut2ids(cache)
 					ut_arr,labels = self.model.sample2vec(samples)
 					scores = self.model.step_test(sess,ut_arr,labels)
-					top3 = self.cal_score(scores,label_cache)
-					top3_sum += top3
-					count +=1
-			print('Test Set Top3 Score:\t%.4f'%(top3_sum/count))
+					h,a = self.cal_score(scores,label_cache)
+					hit_count +=h
+					all_count +=a
+					cache,label_cache = [],[]
+			print('Test Set Top3 Score:\t%.4f'%(hit_count/all_count))
 
 	
 def main(_):

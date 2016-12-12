@@ -2,7 +2,7 @@
 import json
 class Gen:
 	def __init__(self):
-		self.data_path = 'tag_temp.data'
+		self.data_path = 'xywy.data'
 		self.tag_path  = 'tag.data'
 		self.ut_path = 'ut.data'
 		self.train_path = 'train.data'
@@ -14,8 +14,9 @@ class Gen:
 		for line in open(self.data_path,'r'):
 			line =line.strip()
 			items =line.split('\t')
+			#print(len(items))
 			if len(items)==3:
-				tags = items[2].split('/')
+				tags = items[1:]
 				for tag in tags:
 					tag_set[tag] = tag_set.get(tag,0)+1
 			else:
@@ -24,7 +25,8 @@ class Gen:
 		tag_file = open(self.tag_path,'w')
 		tuples =  sorted(tag_set.items(), lambda x, y: cmp(x[1], y[1]), reverse=True)
 		print('tag_size',len(tuples))
-		for i in range( min(5000,len(tuples))):
+		for i in range( min(15000,len(tuples))):
+			print(tuples[i])
 			tag_file.write(tuples[i][0]+'\n')
 
 	def build_all(self):
@@ -41,16 +43,15 @@ class Gen:
 			items =line.split('\t')
 			if len(items)==3:
 				match = []
-				for i in items[2].split('/'):
-					i=i.decode('utf-8')
-					if tags.has_key(i):
-						match.append(tags[i])
-				if len(match)!=0:
-					title = items[0].strip().replace('\n','').replace('\t','').replace('  ',' ')
-					body = items[1].strip().replace('\n','').replace('\t','').replace('  ',' ')
-					if len(title)+len(body)<500:
-						ut_file.write(title+'#'+body+'\n')
-						
+				for i in [1,2]:
+					tag = items[i]
+					if tags.has_key(tag):
+						match.append(tags[tag])
+				print(len(match))
+				if len(match)==2:
+					msg = items[0].strip().replace('\n','').replace('\t','').replace('  ',' ')
+					if len(msg)<500:
+						ut_file.write(msg+'\n')
 						self.all_data.append([ut_index,match])
 						ut_index+=1
 
