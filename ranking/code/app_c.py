@@ -105,7 +105,7 @@ class Robot:
 			session.run(load)
 			print('word embedding load over')
 			
-		self.train_writer = tf.train.SummaryWriter(CFLAGS.summary_dir, session.graph)
+		self.train_writer = tf.train.SummaryWriter(FLAGS.summary_dir, session.graph)
 
 	def ut2ids(self,ut):	#将句子标记转换为具体的词id列表
 		#返回单个对话机器candidates的id表示
