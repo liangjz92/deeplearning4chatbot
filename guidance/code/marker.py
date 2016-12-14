@@ -59,11 +59,12 @@ class Marker:
 			self.logits = tf.add( tf.matmul(self.ut_rep,self.weight), self.offset)
 		
 		with tf.variable_scope("loss_compute") as scope:
-			self.loss = tf.nn.softmax_cross_entropy_with_logits(self.logits,self.labels)
+			#self.loss = tf.nn.softmax_cross_entropy_with_logits(self.logits,self.labels)	只能用来单分类
+			self.loss = tf.nn.sigmoid_cross_entropy_with_logits(self.logits,self.labels)
 
 		with tf.variable_scope("train_op") as scope:
 			#在训练过程中计算损失函数
-			self.loss_mean = tf.reduce_mean(self.loss,0)
+			self.loss_mean = tf.reduce_mean(self.loss)
 			self.loss_sum = tf.reduce_sum(self.loss)
 			tf.scalar_summary('batch_reduce_mean_loss',self.loss_mean)
 			tf.scalar_summary('batch_reduce_sum_loss',self.loss_sum)
@@ -75,6 +76,7 @@ class Marker:
 				if 'embedding' not in param.name:
 					#print(param.name,param)
 					self.loss_mean = self.loss_mean + self.l2_weight * tf.nn.l2_loss(param)
+			tf.scalar_summary('final_loss',self.loss_sum)
 			#opt = tf.train.GradientDescentOptimizer(self.learning_rate)
 			opt = tf.train.AdadeltaOptimizer(self.learning_rate)
 			#opt = tf.train.AdamOptimizer(self.learning_rate)

@@ -14,7 +14,7 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 from data_utils import DU
-from ranker import Ranker
+from ranker_b import Ranker
 import json
 ########################################
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
@@ -33,7 +33,7 @@ tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000, "How many training ste
 tf.app.flags.DEFINE_float("drop_out", 1.0, "keep prob")
 tf.app.flags.DEFINE_integer("layer", 1, "rnn layer")
 tf.app.flags.DEFINE_boolean("train", True, "True to train model, False to decode model")
-tf.app.flags.DEFINE_string("ckpt_dir", "../ckpt", "check point directory.")
+tf.app.flags.DEFINE_string("ckpt_dir", "../ckpt-c", "check point directory.")
 FLAGS = tf.app.flags.FLAGS
 ########################################
 class Robot:
@@ -76,9 +76,6 @@ class Robot:
 	def build_model(self,session):
 		self.model.build_model()
 		ckpt = tf.train.get_checkpoint_state(FLAGS.ckpt_dir)
-		print(ckpt)
-		print(ckpt.model_checkpoint_path)
-		print(tf.gfile.Exists(ckpt.model_checkpoint_path))
 		#尝试从检查点恢复模型参数
 		if ckpt:# and tf.gfile.Exists(ckpt.model_checkpoint_path):
 			print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -107,7 +104,7 @@ class Robot:
 			session.run(load)
 			print('word embedding load over')
 			
-		self.train_writer = tf.train.SummaryWriter('../summary',session.graph)
+		self.train_writer = tf.train.SummaryWriter('../summary-c',session.graph)
 
 	def ut2ids(self,ut):	#将句子标记转换为具体的词id列表
 		#返回单个对话机器candidates的id表示

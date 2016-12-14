@@ -27,9 +27,9 @@ tf.app.flags.DEFINE_integer("mem_size", 64, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("vocab_size", 40001, "vocabulary size.")
 tf.app.flags.DEFINE_integer("tag_size", 180, "tag size.")
 tf.app.flags.DEFINE_integer("max_ut_size", "20", "how manay tokens in one sentence max 36")
-tf.app.flags.DEFINE_integer("max_trainset_size", 100, "Limit on the size of training data (0: no limit).")
-tf.app.flags.DEFINE_integer('max_devset_size',10,"how many dev samples use max")
-tf.app.flags.DEFINE_integer("steps_per_checkpoint", 20, "aHow many training steps to do per checkpoint.")
+tf.app.flags.DEFINE_integer("max_trainset_size", 1000000, "Limit on the size of training data (0: no limit).")
+tf.app.flags.DEFINE_integer('max_devset_size',100,"how many dev samples use max")
+tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000, "aHow many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_boolean("train", True, "True to train model, False to decode model")
 tf.app.flags.DEFINE_string("ckpt_dir", "../ckpt", "check point directory.")
 FLAGS = tf.app.flags.FLAGS
@@ -45,7 +45,10 @@ class Robot:
 			if len(line) > 0:
 				temp  =line.split(' ')
 				for i in range(len(temp)):
-					temp[i] = int(temp[i])
+					try:
+						temp[i] = int(temp[i])
+					except Exception:
+						temp[i] = 3
 				self.ids_arr.append(temp)
 			else:
 				self.ids_arr.append([])
@@ -121,7 +124,7 @@ class Robot:
 	def run_train(self):
 		print('Running train op')
 		train_set = json.load(open(self.du.train_path,'r'))
-		train_set2 = train_set[:10]	#用于测试模型在训练集上的得分
+		train_set2 = train_set[:100]	#用于测试模型在训练集上的得分
 		if len(train_set) > FLAGS.max_trainset_size and FLAGS.max_trainset_size!=0:
 			train_set = train_set[:FLAGS.max_trainset_size]
 		dev_set = json.load(open(self.du.dev_path,'r'))
@@ -161,7 +164,7 @@ class Robot:
 						ut_arr,labels = self.model.sample2vec(samples)
 						scores = self.model.step_test(sess,ut_arr,labels)
 						hit_count,all_count = self.cal_score(scores,labels_cache)
-						print('top3 hit:\t%.4f'%(hit_count/all_count))
+						print('top2 hit:\t%.4f'%(hit_count/all_count))
 					print ("global step %d learning rate %.4f step-time %.4f average loss %.4f" 
 							%(self.model.global_step.eval(), self.model.learning_rate.eval(), step_time, loss))
 					if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
@@ -173,7 +176,7 @@ class Robot:
 
 						
 	def cal_score(self,scores,labels):
-		#计算top3的平均准确率
+		#计算top2的平均准确率
 		#print(scores.shape)
 		#print(labels)
 		batch_size = scores.shape[0]
@@ -181,16 +184,16 @@ class Robot:
 		all_count = 0.0
 		for i in range(batch_size):
 			logit = scores[i,:]
-			tops = logit.argsort()[-3:][::-1]
-			print('logit',tops)
-			print('labels',labels[i])
+			tops = logit.argsort()[-2:][::-1]
+			#print('logit',tops)
+			#print('labels',labels[i])
 			tags =set(labels[i])
 			for j in range(len(tops)):
-				print(tops[j],logit[tops[j]])
+				#print(tops[j],logit[tops[j]])
 				if tops[j] in tags:
 					hit_count = hit_count+1
-			for k in tags:
-				print(k,logit[k])
+			#for k in tags:
+				#print(k,logit[k])
 			all_count = all_count + len(tags)
 		return hit_count,all_count
 			
@@ -201,9 +204,8 @@ class Robot:
 		#模型测试
 		with tf.Session() as sess:
 			self.build_model(sess)
-			#test_set = json.load(open(self.du.test_path,'r'))
-			test_set = json.load(open(self.du.train_path,'r'))
-			#test_set = json.load(open(self.du.traina_path,'r'))
+			test_set = json.load(open(self.du.test_path,'r'))
+			#test_set = json.load(open(self.du.train_path,'r'))
 			cache = []
 			label_cache =[]
 			hit_count,all_count = 0.0,0.0
@@ -219,7 +221,7 @@ class Robot:
 					hit_count +=h
 					all_count +=a
 					cache,label_cache = [],[]
-			print('Test Set Top3 Score:\t%.4f'%(hit_count/all_count))
+			print('Test Set Top2 Score:\t%.4f'%(hit_count/all_count))
 
 	
 def main(_):
