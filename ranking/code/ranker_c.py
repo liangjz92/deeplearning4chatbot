@@ -10,7 +10,7 @@ class Ranker:
 			batch_size =20,
 			max_dialogue_size = 5,
 			max_sentence_size = 6,
-			l2_weight =1e-5,
+			l2_weight =5e-6,
 			l2_weight_decay_factor = 0.9,
 			margin = 0.05,
 			max_gradient_norm = 5.0,
@@ -127,13 +127,14 @@ class Ranker:
 
 		with tf.variable_scope('merge_states') as scope:
 			self.concat_state = []	#进行状态合并之后待匹配的句子表达
-			self.merge_weight = tf.Variable(tf.random_uniform([self.memory_size*3,self.memory_size],-0.1,0.1),name = 'merge')
+			self.merge_weight = tf.Variable(tf.random_uniform([self.memory_size*2,self.memory_size],-0.1,0.1),name = 'merge')
 			#history_out i , context_out i  together_out i  
 			self.merge_bias = tf.Variable(tf.zeros([self.memory_size]),name = 'merge_bias')
 			#进行状态合并，维度重新映射的权值矩阵
 			for i in range(len(self.context_out)):
 				if i%2==0:	#只有需要进行预测的时候进行状态合并
-					concat_state = tf.concat(1,[self.history_out[i], self.context_out[i], self.together_out[i]])	#state merge
+					#concat_state = tf.concat(1,[self.history_out[i], self.context_out[i], self.together_out[i]])	#state merge
+					concat_state = tf.concat(1,[self.history_out[i], self.together_out[i]])	#state merge
 					concat_state = tf.matmul(concat_state,self.merge_weight)	#weight
 					concat_state =tf.add( concat_state, self.merge_bias)	#bias
 					#concat_state = tf.tanh(concat_state)

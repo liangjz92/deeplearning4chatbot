@@ -33,8 +33,8 @@ tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000, "How many training ste
 tf.app.flags.DEFINE_float("drop_out", 1.0, "keep prob")
 tf.app.flags.DEFINE_integer("layer", 1, "rnn layer")
 tf.app.flags.DEFINE_boolean("train", True, "True to train model, False to decode model")
-tf.app.flags.DEFINE_string("ckpt_dir", "../ckpt/ckpt-015", "check point directory.")
-tf.app.flags.DEFINE_string("summary_dir", "../summary/summary-015", "summary data directory.")
+tf.app.flags.DEFINE_string("ckpt_dir", "../ckpt/ckpt-016", "check point directory.")
+tf.app.flags.DEFINE_string("summary_dir", "../summary/summary-016", "summary data directory.")
 FLAGS = tf.app.flags.FLAGS
 ########################################
 class Robot:
