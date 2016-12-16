@@ -27,7 +27,7 @@ tf.app.flags.DEFINE_integer("mem_size", 256, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("vocab_size", 40001, "vocabulary size.")
 tf.app.flags.DEFINE_integer("max_dialogue_size", "10", "how manay uts in one sess max,25")
 tf.app.flags.DEFINE_integer("max_sentence_size", "20", "how manay tokens in one sentence max 36")
-tf.app.flags.DEFINE_integer("max_trainset_size", 1000000, "Limit on the size of training data (0: no limit).")
+tf.app.flags.DEFINE_integer("max_trainset_size", 30000, "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer('max_devset_size',100,"how many dev samples use max")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000, "How many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_float("drop_out", 1.0, "keep prob")
@@ -76,9 +76,6 @@ class Robot:
 	def build_model(self,session):
 		self.model.build_model()
 		ckpt = tf.train.get_checkpoint_state(FLAGS.ckpt_dir)
-		print(ckpt)
-		print(ckpt.model_checkpoint_path)
-		print(tf.gfile.Exists(ckpt.model_checkpoint_path))
 		#尝试从检查点恢复模型参数
 		if ckpt:# and tf.gfile.Exists(ckpt.model_checkpoint_path):
 			print("Reading model parameters from %s" % ckpt.model_checkpoint_path)

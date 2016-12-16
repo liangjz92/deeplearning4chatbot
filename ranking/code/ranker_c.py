@@ -10,7 +10,7 @@ class Ranker:
 			batch_size =20,
 			max_dialogue_size = 5,
 			max_sentence_size = 6,
-			l2_weight =5e-6,
+			l2_weight =1e-5,
 			l2_weight_decay_factor = 0.9,
 			margin = 0.05,
 			max_gradient_norm = 5.0,
@@ -134,7 +134,8 @@ class Ranker:
 			for i in range(len(self.context_out)):
 				if i%2==0:	#只有需要进行预测的时候进行状态合并
 					#concat_state = tf.concat(1,[self.history_out[i], self.context_out[i], self.together_out[i]])	#state merge
-					concat_state = tf.concat(1,[self.history_out[i], self.together_out[i]])	#state merge
+					concat_state = tf.concat(1,[self.history_out[i], self.context_out[i]])	#state merge
+					#concat_state = tf.concat(1,[self.history_out[i], self.together_out[i]])	#state merge
 					concat_state = tf.matmul(concat_state,self.merge_weight)	#weight
 					concat_state =tf.add( concat_state, self.merge_bias)	#bias
 					#concat_state = tf.tanh(concat_state)
@@ -261,8 +262,8 @@ class Ranker:
 		]
 		outputs = session.run(output_feed,input_feed)
 
-		if outputs[4] > (outputs[5]*0.5):	#l2 loss的损失超过了sample分类的损失，则将l2的权重调低
-			session.run(self.l2_weight_decay_op )
+		#if outputs[4] > (outputs[5]*0.5):	#l2 loss的损失超过了sample分类的损失，则将l2的权重调低
+		#	session.run(self.l2_weight_decay_op )
 		
 		return outputs[2],outputs[3]
 

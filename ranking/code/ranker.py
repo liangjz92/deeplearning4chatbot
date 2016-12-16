@@ -10,7 +10,8 @@ class Ranker:
 			batch_size =20,
 			max_dialogue_size = 5,
 			max_sentence_size = 6,
-			l2_weight =1e-5,
+			#l2_weight =1e-5,
+			l2_weight =0.0,
 			margin = 0.05,
 			max_gradient_norm = 5.0,
 			learning_rate =1.0,
@@ -32,6 +33,17 @@ class Ranker:
 		self.train_mode =train_mode
 		self.global_step = tf.Variable(0, trainable=False)
 		self.margin_val = margin
+		print('vocab_size',self.vocab_size)
+		print('embedding_size',self.embedding_size)
+		print('batch_size',self.batch_size)
+		print('max_dialogue_size',self.max_dialogue_size)
+		print('max_sentence_size',self.max_sentence_size)
+		print('l2_weight',self.l2_weight)
+		print('learning_rate',self.learning_rate)
+		print('margin_val',self.margin_val)
+		
+		
+		
 
 	def build_model(self):
 		self.history_index = []
