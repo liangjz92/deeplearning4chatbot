@@ -11,7 +11,7 @@ import data_utils
 class HRED:
 	def __init__(self):
 		self.train = True	#模型用来训练还是测试
-		self.batch_size = 50
+		self.batch_size = 64
 		self.memory_size =300	#RNN单元维度
 		self.vocab_size = 20001
 		self.embedding_size = 300

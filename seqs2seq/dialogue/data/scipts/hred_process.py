@@ -6,6 +6,7 @@ class Robot:
 		self.out_path = 'skin.txt'
 	def run(self):
 		out = open(self.out_path,'w')
+		session_count = 0
 		with open(self.in_path,'rb') as csvfile:
 			#spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
 			spamreader = csv.reader(csvfile)
@@ -15,7 +16,8 @@ class Robot:
 			context_cache = []
 			role_cache =""
 			txt = ""
-			for row in spamreader:
+			for row in spamreader:	
+				#print(row)
 				if first:
 					first = False
 					continue
@@ -26,8 +28,9 @@ class Robot:
 				
 				session_type= row[1]
 				if current_id !=cache_id:
+					session_count +=1
 					role_cache = role+"a"
-					if len(context_cache)>25 or len(context_cache)<5:
+					if len(context_cache)>500 or len(context_cache)<4:
 						context_cache =[]
 					else:
 						out.write("^".join(context_cache)+"\n")
@@ -47,10 +50,11 @@ class Robot:
 				if role_cache!=role:
 					context_cache.append(content)
 				else:
-					context_cache[-1]+="。"+content
+					context_cache[-1]+="#"+content
 				role_cache = role
 			print (",".join(row))
 			print (row[6])
+			print('session_count',session_count)
 				
 				
 			#print ', '.join(row)

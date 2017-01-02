@@ -23,12 +23,13 @@ SPLITER = "^"
 # Regular expressions used to tokenize.
 _WORD_SPLIT = re.compile(b"([.,!?\"':;)(])")
 _DIGIT_RE = re.compile(br"\d")
-
+'''
 def basic_tokenizer(sentence):
 	words = []
 	for space_separated_fragment in sentence.strip().split():
 		words.extend(re.split(_WORD_SPLIT, space_separated_fragment))
 	return [w for w in words if w]
+'''
 def jieba_tokenizer(sentence):
 	sentence =sentence.replace("^"," ")
 	#一个简单的中文分词器
@@ -86,7 +87,7 @@ def sentence_to_token_ids(sentence, vocabulary,	tokenizer=None, normalize_digits
 	# Normalize digits by 0 before looking words up in the vocabulary.
 	return [vocabulary.get(re.sub(_DIGIT_RE, b"0", w), UNK_ID) for w in words]
 
-def data_to_token_ids(data_path, target_path, vocabulary_path, tokenizer=None, normalize_digits=True):
+def data_to_token_ids(data_path, target_path, vocabulary_path, tokenizer=None, normalize_digits=False):
 	print(target_path)
 	if True:#gfile.Exists(target_path):
 		print("Tokenizing data in %s" % data_path)
@@ -110,9 +111,10 @@ def prepare_data(data_dir, src_vocabulary_size, tar_vocabulary_size, tokenizer=N
 	create_vocabulary("./data/vocab.data","./data/skin2.data",20000)
 	pass
 if __name__ =="__main__":
+	jieba.load_userdict('./data/medical.txt')
 	#vocab, rv = initialize_vocabulary("./data/vocab.data")
 	#print(len(vocab))
-#	create_vocabulary("./data/vocab.data","./data/skin2.data",20000)
+#	create_vocabulary("./data/vocab.data","./data/skin2.data",40000)
 	data_to_token_ids("./data/skin-train.data","./data/train.data","./data/vocab.data")
 	data_to_token_ids("./data/skin-dev.data","./data/dev.data","./data/vocab.data")
 	data_to_token_ids("./data/skin-test.data","./data/test.data","./data/vocab.data")

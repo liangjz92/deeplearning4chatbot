@@ -21,7 +21,7 @@ tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.2, "Learning rate decays by this much.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 15.0, "Clip gradients to this norm.")
 tf.app.flags.DEFINE_float("margin", 0.3, "margin between true and false candiate")
-tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size to use during training.")
+tf.app.flags.DEFINE_integer("batch_size", 512, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("emd_size", 300, "embedding size")
 tf.app.flags.DEFINE_integer("mem_size", 256, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("vocab_size", 40001, "vocabulary size.")
@@ -33,7 +33,8 @@ tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000, "How many training ste
 tf.app.flags.DEFINE_float("drop_out", 1.0, "keep prob")
 tf.app.flags.DEFINE_integer("layer", 1, "rnn layer")
 tf.app.flags.DEFINE_boolean("train", True, "True to train model, False to decode model")
-tf.app.flags.DEFINE_string("ckpt_dir", "../ckpt", "check point directory.")
+tf.app.flags.DEFINE_string("ckpt_dir", "../ckpt/ckpt-020", "check point directory.")
+tf.app.flags.DEFINE_string("summary_dir", "../summary/summary-020", "check point directory.")
 FLAGS = tf.app.flags.FLAGS
 ########################################
 class Robot:
@@ -104,7 +105,7 @@ class Robot:
 			session.run(load)
 			print('word embedding load over')
 			
-		self.train_writer = tf.train.SummaryWriter('../summary',session.graph)
+		self.train_writer = tf.train.SummaryWriter(FLAGS.summary_dir,session.graph)
 
 	def ut2ids(self,ut):	#将句子标记转换为具体的词id列表
 		#返回单个对话机器candidates的id表示
